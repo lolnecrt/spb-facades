@@ -764,7 +764,7 @@
     if (!(W > 0) || W > W_MAX) return fail(`Ширина должна быть от 0 до ${W_MAX} м.`);
     const sec = buildSection(st, N);
     if (sec.error) return fail(sec.error);
-    // H1 / G1: карниз (или парапет) не выше 23,5 м — проверяется до раскладки
+    // G1: карниз (или парапет) не выше 23,5 м — проверяется по готовой модели ниже
     const limit = data.limit.cornice_max_m;
     let model;
     if (st.id === '02' || st.id === '06') {
@@ -777,7 +777,7 @@
         const ra = rowAxes(W, pr.e, cnd.n);
         const plan = { axes: ra.axes, parts: [{ kind: 'row', name: 'фасад', x0: 0, x1: W }], step: ra.step, stepInfo: `шаг ${fmt(ra.step, 3)} м (задан ${fmt(target, 2)})` };
         const m = assemble(data, st, W, N, o, sec, plan);
-        const bad = m.checks.filter((c) => !c.ok && (c.id.startsWith('T') || c.id === 'H1'));
+        const bad = m.checks.filter((c) => !c.ok && (c.id.startsWith('T') || c.id === 'G1'));
         if (!bad.length) { model = m; break; }
         lastErr = bad.map((c) => c.detail).join('; ');
       }
@@ -814,11 +814,13 @@
   function checkModel(data, m) {
     const st = getStyle(data, m.style);
     const C = [];
-    const push = (id, ok, detail, hard) => C.push({ id, ok: !!ok, detail, hard: !!hard });
+    const push = (id, ok, detail, hard, warn) => C.push({ id, title: RULE_TITLES[id] || id, ok: !!ok, detail, hard: !!hard, warn: !!warn });
     const E = m.elements;
     const ops = E.filter((e) => e.type === 'opening');
-    // H1 = G1: предел 23,5 м для карниза и парапета (кровля и скульптура не считаются — G3)
-    push('H1', m.wallTop <= m.limit + EPS, `верх карниза/парапета ${fmt(m.wallTop, 2)} м ≤ ${fmt(m.limit, 1)} м`, true);
+    // G1: предел 23,5 м — жёсткое ограничение; G3: относится к карнизу или парапету
+    // (и, осторожно, к аттику); кровля и скульптура могут быть выше
+    push('G1', m.wallTop <= m.limit + EPS, `верх карниза/парапета/аттика ${fmt(m.wallTop, 2)} м ≤ ${fmt(m.limit, 1)} м (запас ${fmt(m.limit - m.wallTop, 2)} м)`, true);
+    if (m.roofTop) push('G3', true, `${m.style === '01' ? 'скульптура' : 'кровля'} до ${fmt(m.roofTop, 2)} м в предел не входит${m.roofTop > m.limit ? ' — и выше 23,5 м это допустимо' : ''}`, false);
     // T1: оси влезают в ширину
     const ax = m.axes;
     const inside = ax.every((a) => a.x > EPS && a.x < m.W - EPS);
@@ -915,12 +917,36 @@
         const rust = E.find((e) => e.type === 'rust');
         R('R06.1', rust && rust.floor === '1–2', 'руст на 1–2-м этажах как цоколь');
         const bal = E.filter((e) => e.type === 'balcony');
-        R('R06.3', bal.length === 0, 'балконов с балюстрадой нет; величина зазора до предела не задана (не реализовано)');
+        push('R06.3', bal.length === 0, 'балконов с балюстрадой нет; «карниз вплотную к пределу» не реализовано — не задан зазор (вопрос автору)', true, true);
         break;
       }
     }
     return C;
   }
+
+  // Краткие подписи правил для страницы; дословные тексты — docs/implementation.md
+  const RULE_TITLES = {
+    G1: 'Карниз (парапет) не выше 23,5 м',
+    G2: 'Первый этаж — самый высокий',
+    G3: 'Кровля и скульптура могут быть выше предела',
+    G5: 'Симметрия (в модерне — асимметрия)',
+    G6: 'Рустованы лопатки центрального ризалита',
+    F1: 'Нет ордера без каменного или рустованного основания',
+    F2: 'Одинаковый шаг осей в рядовом доме',
+    F3: 'Нет смешения элементов разных стилей',
+    T1: 'Оси влезают в ширину',
+    T2: 'Проёмы не пересекаются',
+    T3: 'Проёмы в пределах фасада',
+    'R01.1': 'Пятичастная композиция, по 6 осей в крыле, ордер на рустованном 1-м этаже',
+    'R02.1': 'Руст только на 1-м этаже, сильный пояс между 2-м и 3-м',
+    'R02.3': 'Не берём высокий нарядный 3-й этаж',
+    'R03.1': 'Узкий ризалит с парными окнами и балконом, лучковые фронтоны на крайних осях',
+    'R03.3': 'Не берём отдельное обрамление окон для каждого этажа',
+    'R04.1': 'Асимметрия, оси разной ширины, гранитный цоколь на 2 этажа, волнистый парапет',
+    'R05.1': 'Симметрия, 2 ризалита, ордер на 3 этажа, гранитная база, порталы с фронтонами',
+    'R06.1': 'Руст на 1–2-м этажах как цоколь',
+    'R06.3': 'Не берём карниз вплотную к пределу и балконы с балюстрадой'
+  };
 
   // ------------------------------------------------------- диапазоны ввода
   function floorRange(data, styleId, opts) {
@@ -1273,6 +1299,7 @@
     version: '1.0',
     EPS,
     W_MAX,
+    RULE_TITLES,
     FLOOR_PLAN,
     getStyle,
     styleOptions,

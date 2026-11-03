@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Генератор фасадов</title>
+<meta name="description" content="Обмерный чертёж фасада доходного дома по шести типам Адмиралтейского района: оси, отметки, размеры, предел 23,5 м.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eef0ee; --sheet:#fdfdfb; --ink:#1c2024; --muted:#59626a; --rule:#d3d8d5;
+  --accent:#1e4f7a; --limit:#b8382c; --tint:#e3eaf0; --ok:#2f6b3a; --warn:#8a5a00; --bad:#b8382c;
+  --field:#ffffff;
+  --display:'PT Sans Narrow','Arial Narrow','Roboto Condensed',sans-serif;
+  --body:'PT Serif',Georgia,'Times New Roman',serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#14181b; --sheet:#f7f8f6; --ink:#e6e9eb; --muted:#a3adb5; --rule:#2d3439;
+    --accent:#8ab8e0; --limit:#ff7b6b; --tint:#1d2730; --ok:#7cc88a; --warn:#e0b25a; --bad:#ff7b6b;
+    --field:#1b2125; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14181b; --sheet:#f7f8f6; --ink:#e6e9eb; --muted:#a3adb5; --rule:#2d3439;
+  --accent:#8ab8e0; --limit:#ff7b6b; --tint:#1d2730; --ok:#7cc88a; --warn:#e0b25a; --bad:#ff7b6b;
+  --field:#1b2125; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55}
+a{color:var(--accent);text-underline-offset:2px}
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--display);font-weight:700;line-height:1.1;margin:0;text-wrap:balance}
+h1{font-size:clamp(32px,4.6vw,50px);letter-spacing:-0.01em}
+h2{font-size:clamp(24px,3vw,32px)}
+.eyebrow{font-family:var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-size:15px;margin:0 0 10px}
+header.top{padding:36px 0 22px;display:grid;gap:18px}
+.lede{max-width:70ch;margin:0;font-size:18px}
+.method{max-width:84ch;margin:0;padding:12px 16px;border-left:3px solid var(--accent);background:var(--tint);font-size:15.5px}
+.method p{margin:0 0 6px}.method p:last-child{margin:0}
+section{padding:26px 0;border-top:1px solid var(--rule)}
+.app{display:grid;grid-template-columns:330px minmax(0,1fr);gap:24px;align-items:start}
+.panel{position:sticky;top:12px;display:grid;gap:14px;padding:16px;border:1px solid var(--rule);background:color-mix(in srgb,var(--sheet) 5%,var(--paper))}
+.field{display:grid;gap:5px}
+.field > span,.opts legend{font-family:var(--display);font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+select,input[type=number]{font:16px var(--body);color:var(--ink);background:var(--field);border:1px solid var(--rule);border-radius:3px;padding:7px 9px;width:100%}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.row2{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center}
+.hint{margin:0;font-size:14px;color:var(--muted)}
+.house{margin:0;font-size:14.5px;color:var(--muted)}
+.opts{border:1px solid var(--rule);padding:10px 12px 12px;margin:0;display:grid;gap:9px}
+.opts[hidden]{display:none}
+.opts legend{padding:0 4px}
+.opts label{display:flex;gap:8px;align-items:flex-start;font-size:15px;line-height:1.35}
+.opts label input[type=checkbox]{margin-top:3px;accent-color:var(--accent)}
+.opts .num{display:grid;gap:4px}
+.opts small{color:var(--muted);font-size:13px}
+.rule-id{font-family:var(--display);font-size:13px;color:var(--accent);letter-spacing:.03em}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:600 15px var(--display);letter-spacing:.03em;padding:8px 14px;border:1px solid var(--rule);background:var(--field);color:var(--ink);border-radius:3px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] button.primary{color:#0e1418}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.primary{color:#0e1418}}
+button:disabled{opacity:.5;cursor:not-allowed}
+.summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0;margin:0 0 14px;border:1px solid var(--rule)}
+.summary div{padding:8px 12px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:-1px -1px 0 0}
+.summary dt{font-family:var(--display);font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.summary dd{margin:0;font-family:var(--display);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.summary dd.limit{color:var(--limit)}
+.sheet{margin:0;background:var(--sheet);border:1px solid var(--rule)}
+.sheet-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:7px 10px;border-bottom:1px solid #dde1de;background:#f3f5f3;color:#4d565d}
+.sheet-label{font-family:var(--display);font-size:14px;letter-spacing:.04em;margin-right:auto}
+.zbtn{font-size:13.5px;padding:3px 9px;background:#fff;color:#1c2024;border-color:#c5ccc8}
+.zbtn.is-on{background:#1e4f7a;border-color:#1e4f7a;color:#fff}
+.sheet-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+#drawing{padding:6px;margin:0 auto}
+#drawing svg{display:block;width:100%;height:auto}
+#drawing.zoomed{width:220%;max-width:none}
+.error{margin:0 0 14px;padding:12px 16px;border-left:4px solid var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--paper))}
+.error strong{font-family:var(--display);letter-spacing:.02em}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:8px 24px;margin:16px 0 0;padding:0;list-style:none}
+.checks li{display:grid;grid-template-columns:22px 1fr;gap:6px;font-size:15px;line-height:1.4;padding:6px 0;border-bottom:1px solid var(--rule)}
+.checks .mk{font-family:var(--display);font-weight:700;font-size:17px}
+.checks .ok .mk{color:var(--ok)}.checks .bad .mk{color:var(--bad)}.checks .warn .mk{color:var(--warn)}
+.checks .t{font-family:var(--display);font-size:16px;letter-spacing:.01em}
+.checks .d{display:block;color:var(--muted);font-size:14px}
+.notes{margin:14px 0 0;padding:10px 14px 10px 30px;background:var(--tint);border-left:3px solid var(--warn);font-size:15px}
+.notes:empty{display:none}
+.tbl-scroll{overflow-x:auto;margin-top:14px;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;min-width:880px;font-size:15px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--rule);text-align:right;vertical-align:top}
+th{font-family:var(--display);font-weight:700;letter-spacing:.03em;color:var(--muted);background:color-mix(in srgb,var(--sheet) 6%,var(--paper))}
+thead tr:first-child th{border-bottom:none}
+th.grp{text-align:center;border-left:1px solid var(--rule)}
+td.l,th.l{text-align:left}
+td.gs,th.gs{border-left:1px solid var(--rule)}
+td.zero{color:var(--ok)}td.nz{color:var(--warn);font-weight:700}
+td .addr{display:block;color:var(--muted);font-size:13.5px}
+td button{font-size:13px;padding:3px 8px}
+.vnote{max-width:84ch;color:var(--muted);font-size:15px;margin:8px 0 0}
+.links{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:14px 0 0;padding:0;list-style:none}
+.links a{display:block;padding:12px 14px;border:1px solid var(--rule);text-decoration:none;color:var(--ink)}
+.links a:hover{border-color:var(--accent)}
+.links b{font-family:var(--display);font-size:18px;display:block;color:var(--accent)}
+.links span{font-size:14px;color:var(--muted)}
+.load{padding:16px;border:1px dashed var(--muted);background:var(--tint)}
+.load code{font-size:14px}
+footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px solid var(--rule)}
+@media (max-width:900px){
+  .app{grid-template-columns:1fr}
+  .panel{position:static}
+}
+@media (max-width:520px){
+  .wrap{padding:0 16px}
+  body{font-size:16px}
+  .summary dd{font-size:19px}
+  #drawing.zoomed{width:400%}
+}
+</style>
+</head>
+<body>
+<header class="wrap top">
+  <p class="eyebrow">Генератор фасадов · Адмиралтейский район · без 3D</p>
+  <h1>Фасад доходного дома по шести типам</h1>
+  <p class="lede">Выберите тип, ширину фасада и этажность — генератор построит обмерный чертёж: оси с номерами, отметки, размерные цепочки и линию предела 23,5&nbsp;м. Карниз выше предела генератор не построит.</p>
+  <div class="method">
+    <p><strong>Откуда размеры.</strong> Из альбома <a href="facades.html">«Шесть фасадов Адмиралтейского района»</a> (<a href="facades.pdf">PDF</a>): реконструкция по фотографиям и контурам OpenStreetMap с помощью ИИ, не натурный обмер, высоты ±0,5&nbsp;м.</p>
+    <p><strong>Откуда логика.</strong> Из правил автора проекта (<a href="my_rules.md">my_rules.md</a>). Как каждое правило реализовано — <a href="docs/implementation.md">docs/implementation.md</a>.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="app" aria-label="Генератор">
+    <form class="panel" id="controls" onsubmit="return false">
+      <label class="field"><span>Тип фасада</span>
+        <select id="style" aria-describedby="house"></select>
+      </label>
+      <p class="house" id="house"></p>
+      <div class="field">
+        <span id="wlab">Ширина фасада, м</span>
+        <div class="row2">
+          <input type="number" id="width" inputmode="decimal" step="0.01" aria-labelledby="wlab">
+          <input type="range" id="widthRange" step="0.1" aria-label="Ширина фасада, ползунок">
+        </div>
+        <p class="hint" id="widthHint"></p>
+      </div>
+      <label class="field"><span>Этажность</span>
+        <select id="floors" aria-describedby="floorsHint"></select>
+      </label>
+      <p class="hint" id="floorsHint"></p>
+      <fieldset class="opts" id="opts" hidden><legend>Можно менять — по правилам</legend><div id="optsBody" style="display:grid;gap:9px"></div></fieldset>
+      <div class="btns">
+        <button type="button" id="reset">Как в альбоме</button>
+        <button type="button" id="download" class="primary">Скачать SVG</button>
+      </div>
+    </form>
+
+    <div class="result">
+      <div class="error" id="error" role="alert" hidden></div>
+      <dl class="summary" id="summary"></dl>
+      <figure class="sheet" id="sheet">
+        <div class="sheet-tools">
+          <span class="sheet-label" id="sheetLabel">Чертёж</span>
+          <button type="button" class="zbtn is-on" data-zoom="fit">вписать</button>
+          <button type="button" class="zbtn" data-zoom="big">крупно</button>
+        </div>
+        <div class="sheet-scroll"><div id="drawing"></div></div>
+      </figure>
+      <ul class="checks" id="checks" aria-label="Проверки правил"></ul>
+      <ul class="notes" id="notes"></ul>
+    </div>
+  </section>
+
+  <section id="validation" aria-labelledby="validation-h">
+    <h2 id="validation-h">Проверка: генератор воспроизводит дома альбома</h2>
+    <p class="vnote">С параметрами каждого дома (тип, ширина, этажность, варианты по умолчанию) генератор должен дать ту же ширину, то же число осей и ту же отметку карниза. Таблица считается здесь же, в браузере; та же таблица — в <a href="docs/validation.md">docs/validation.md</a>.</p>
+    <div class="tbl-scroll"><table id="vtable"></table></div>
+    <p class="vnote" id="vfoot"></p>
+  </section>
+
+  <section aria-labelledby="docs-h">
+    <h2 id="docs-h">Документы проекта</h2>
+    <ul class="links">
+      <li><a href="facades.html"><b>Альбом</b><span>шесть обмерных чертежей 1817–1956</span></a></li>
+      <li><a href="my_rules.md"><b>Правила автора</b><span>главный источник логики генератора</span></a></li>
+      <li><a href="docs/implementation.md"><b>Правило → реализация</b><span>и вопросы автору</span></a></li>
+      <li><a href="docs/validation.md"><b>Сверка с альбомом</b><span>альбом / генератор / расхождение</span></a></li>
+      <li><a href="data/styles.json"><b>Параметры типов</b><span>data/styles.json</span></a></li>
+    </ul>
+  </section>
+</main>
+<footer class="wrap">Чертежи альбома — реконструкция по фото с помощью ИИ, не натурный обмер; правила — автора проекта. Генератор не заменяет обмер и проект.</footer>
+
+<script src="src/generator.js"></script>
+<script>
+(function () {
+  'use strict';
+  const G = window.FacadeGenerator;
+  const $ = (id) => document.getElementById(id);
+  const fmt = G.fmt;
+  let DATA = null;
+  let lastSVG = null;
+  const state = { style: '02', width: null, floors: null, options: {} };
+
+  // ---------- загрузка данных
+  async function load() {
+    try {
+      const r = await fetch('data/styles.json', { cache: 'no-cache' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      DATA = await r.json();
+      start();
+    } catch (e) {
+      showLoadError(e);
+    }
+  }
+
+  function showLoadError(e) {
+    const box = $('error');
+    box.hidden = false;
+    box.className = 'load';
+    box.innerHTML = '<p><strong>Не удалось загрузить data/styles.json</strong> (' + escapeHtml(String(e.message || e)) + '). Скорее всего, страница открыта как файл с диска — браузер не даёт ей читать соседние файлы.</p>' +
+      '<p>Запустите в папке проекта <code>python3 -m http.server 8000</code> и откройте <code>http://localhost:8000/</code>. Или выберите файл <code>data/styles.json</code> вручную: <input type="file" id="pick" accept=".json,application/json"></p>';
+    $('pick').addEventListener('change', (ev) => {
+      const f = ev.target.files[0];
+      if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => {
+        try { DATA = JSON.parse(rd.result); box.hidden = true; box.className = 'error'; start(); }
+        catch (err) { alert('Это не JSON: ' + err.message); }
+      };
+      rd.readAsText(f, 'utf-8');
+    });
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  // ---------- состояние в адресе (#s=02&w=35.9&n=4&step=2.24)
+  function readHash() {
+    const h = new URLSearchParams(location.hash.slice(1));
+    if (h.get('s') && DATA.styles.some((s) => s.id === h.get('s'))) state.style = h.get('s');
+    const st = G.getStyle(DATA, state.style);
+    const req = G.albumRequest(st);
+    state.width = h.get('w') ? Number(h.get('w')) : req.width;
+    state.floors = h.get('n') ? Number(h.get('n')) : req.floors;
+    state.options = Object.assign({}, req.options);
+    for (const d of G.styleOptions(st)) {
+      if (!h.has(d.key)) continue;
+      state.options[d.key] = d.type === 'number' ? Number(h.get(d.key)) : h.get(d.key) === '1';
+    }
+  }
+  function writeHash() {
+    const h = new URLSearchParams();
+    h.set('s', state.style); h.set('w', String(state.width)); h.set('n', String(state.floors));
+    for (const [k, v] of Object.entries(state.options)) h.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+    history.replaceState(null, '', '#' + h.toString());
+  }
+
+  // ---------- интерфейс
+  function start() {
+    const sel = $('style');
+    sel.innerHTML = DATA.styles.map((s) => `<option value="${s.id}">${s.id} · ${s.name} — ${s.house.address}</option>`).join('');
+    readHash();
+    sel.value = state.style;
+    sel.addEventListener('change', () => { setStyle(sel.value); });
+    $('width').addEventListener('input', () => { const v = Number($('width').value.replace(',', '.')); if (v > 0) { state.width = v; $('widthRange').value = v; update(); } });
+    $('widthRange').addEventListener('input', () => { state.width = Number($('widthRange').value); $('width').value = state.width; update(); });
+    $('floors').addEventListener('change', () => { state.floors = Number($('floors').value); refreshWidth(); update(); });
+    $('reset').addEventListener('click', () => setStyle(state.style));
+    $('download').addEventListener('click', download);
+    document.querySelectorAll('.zbtn').forEach((b) => b.addEventListener('click', () => {
+      document.querySelectorAll('.zbtn').forEach((x) => x.classList.toggle('is-on', x === b));
+      $('drawing').classList.toggle('zoomed', b.dataset.zoom === 'big');
+    }));
+    buildOptions();
+    refreshFloors();
+    refreshWidth();
+    $('width').value = state.width;
+    $('widthRange').value = state.width;
+    update();
+    buildValidation();
+  }
+
+  function setStyle(id) {
+    state.style = id;
+    const req = G.albumRequest(G.getStyle(DATA, id));
+    state.width = req.width; state.floors = req.floors; state.options = Object.assign({}, req.options);
+    $('style').value = id;
+    buildOptions(); refreshFloors(); refreshWidth();
+    $('width').value = state.width; $('widthRange').value = state.width;
+    update();
+  }
+
+  function buildOptions() {
+    const st = G.getStyle(DATA, state.style);
+    const defs = G.styleOptions(st);
+    $('opts').hidden = !defs.length;
+    $('optsBody').innerHTML = defs.map((d) => d.type === 'bool'
+      ? `<label><input type="checkbox" data-opt="${d.key}" ${state.options[d.key] ? 'checked' : ''}> <span>${escapeHtml(d.label)} <span class="rule-id">${d.rule}</span></span></label>`
+      : `<label class="num"><span>${escapeHtml(d.label)} <span class="rule-id">${d.rule}</span></span><input type="number" data-opt="${d.key}" min="${d.min}" max="${d.max}" step="${d.step}" value="${state.options[d.key]}">${d.hint ? `<small>${escapeHtml(d.hint)}; число осей подбирается под ширину</small>` : '<small>число осей подбирается под ширину</small>'}</label>`).join('');
+    $('optsBody').querySelectorAll('[data-opt]').forEach((el) => el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+      const d = defs.find((q) => q.key === el.dataset.opt);
+      if (d.type === 'bool') state.options[d.key] = el.checked;
+      else { const v = Number(String(el.value).replace(',', '.')); if (!(v > 0)) return; state.options[d.key] = v; }
+      refreshFloors(); refreshWidth(); update();
+    }));
+    const h = st.house;
+    $('house').innerHTML = `Тип по дому: <a href="${h.link}">${escapeHtml(h.address)}</a>, ${escapeHtml(h.years)} · ${escapeHtml(h.architect)} · в альбоме ${fmt(st.album.width_m)} м, ${st.album.floors} эт., ${st.album.axes} осей`;
+  }
+
+  function refreshFloors() {
+    const fr = G.floorRange(DATA, state.style, state.options);
+    const sel = $('floors');
+    sel.innerHTML = fr.list.map((x) => {
+      const why = x.ok ? `верх ${fmt(x.wallTop)} м` : x.wallTop ? `нельзя: ${fmt(x.wallTop)} м > 23,5` : 'нельзя по правилам стиля';
+      return `<option value="${x.N}" ${x.ok ? '' : 'disabled'}>${x.N} эт. — ${why}</option>`;
+    }).join('');
+    if (!fr.list.find((x) => x.N === state.floors && x.ok)) state.floors = Math.min(Math.max(state.floors, fr.min), fr.max);
+    sel.value = state.floors;
+    const bad = fr.list.filter((x) => !x.ok && x.N > fr.max && x.wallTop);
+    $('floorsHint').textContent = `Можно ${fr.min}–${fr.max} эт.` + (bad.length ? ` При ${bad[0].N} эт. карниз был бы на ${fmt(bad[0].wallTop)} м — выше предела.` : '');
+  }
+
+  function refreshWidth() {
+    const wr = G.widthRange(DATA, state.style, state.floors, state.options);
+    const min = wr.min || 1;
+    for (const el of [$('width'), $('widthRange')]) { el.min = min; el.max = G.W_MAX; }
+    $('widthHint').textContent = `От ${fmt(min)} до ${fmt(G.W_MAX, 0)} м. Альбом: ${fmt(G.getStyle(DATA, state.style).album.width_m)} м.`;
+  }
+
+  function update() {
+    writeHash();
+    const g = G.generate(DATA, { style: state.style, width: state.width, floors: state.floors, options: state.options });
+    const err = $('error');
+    if (!g.ok) {
+      err.hidden = false;
+      err.innerHTML = `<strong>Фасад не построен.</strong> ${escapeHtml(g.error)}`;
+      $('drawing').style.opacity = '0.25';
+      $('download').disabled = true;
+      return;
+    }
+    err.hidden = true;
+    $('drawing').style.opacity = '';
+    $('download').disabled = false;
+    const m = g.model;
+    lastSVG = G.render(m, DATA);
+    $('drawing').innerHTML = lastSVG;
+    const scale = (lastSVG.match(/data-scale="([^"]+)"/) || [])[1];
+    $('sheetLabel').textContent = `${m.style} · ${m.styleName} · ${fmt(m.W)} м · ${m.N} эт. · М ${scale}`;
+    const isCornice = m.cornice !== null;
+    const items = [
+      [isCornice ? 'Отметка карниза' : 'Верх парапета', fmt(isCornice ? m.cornice : m.parapetTop) + ' м'],
+      ['Верх стены', fmt(m.wallTop) + ' м'],
+      ['Запас до 23,5 м', fmt(m.limit - m.wallTop) + ' м', 'limit'],
+      ['Осей', String(m.axes.length)],
+      ['Ширина', fmt(m.W) + ' м'],
+      ['Этажей', String(m.N)]
+    ];
+    if (m.roofTop) items.push([m.style === '01' ? 'Скульптура' : 'Кровля', fmt(m.roofTop) + ' м']);
+    $('summary').innerHTML = items.map(([k, v, c]) => `<div><dt>${k}</dt><dd${c ? ` class="${c}"` : ''}>${v}</dd></div>`).join('');
+    $('checks').innerHTML = m.checks.map((c) => {
+      const cls = !c.ok ? 'bad' : c.warn ? 'warn' : 'ok';
+      const mk = !c.ok ? '✗' : c.warn ? '!' : '✓';
+      return `<li class="${cls}"><span class="mk" aria-label="${cls === 'ok' ? 'выполнено' : cls === 'warn' ? 'частично' : 'нарушено'}">${mk}</span><span><span class="t"><span class="rule-id">${c.id}</span> ${escapeHtml(c.title)}</span><span class="d">${escapeHtml(c.detail)}</span></span></li>`;
+    }).join('');
+    $('notes').innerHTML = (m.notes || []).map((n) => `<li>${escapeHtml(n)}</li>`).join('');
+  }
+
+  function download() {
+    if (!lastSVG) return;
+    const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + lastSVG], { type: 'image/svg+xml;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `facade-${state.style}-${String(state.width).replace('.', ',')}m-${state.floors}fl.svg`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // ---------- таблица сверки
+  function buildValidation() {
+    const rows = G.validate(DATA);
+    const d = (v, n) => { const z = Math.abs(v) < 1e-9; return `<td class="${z ? 'zero' : 'nz'}">${v > 0 ? '+' : ''}${n === 0 ? v : fmt(v, n)}</td>`; };
+    let html = `<thead><tr><th class="l" rowspan="2">Тип и дом</th><th class="grp" colspan="3">Ширина, м</th><th class="grp" colspan="3">Число осей</th><th class="grp" colspan="3">Отметка карниза, м</th><th class="grp" colspan="2">Дополнительно, м</th><th rowspan="2"></th></tr>
+      <tr><th class="gs">альбом</th><th>генератор</th><th>расхожд.</th><th class="gs">альбом</th><th>генератор</th><th>расхожд.</th><th class="gs">альбом</th><th>генератор</th><th>расхожд.</th><th class="gs">сдвиг осей</th><th>отметки этажей</th></tr></thead><tbody>`;
+    for (const r of rows) {
+      if (!r.ok) { html += `<tr><td class="l">${r.id} · ${escapeHtml(r.name)}</td><td colspan="12" class="l nz">не построен: ${escapeHtml(r.error)}</td></tr>`; continue; }
+      html += `<tr><td class="l">${r.id} · ${escapeHtml(r.name)}<span class="addr"><a href="${r.link}">${escapeHtml(r.address)}</a>${r.corniceKind !== 'карниз' ? ' · ' + escapeHtml(r.corniceKind) : ''}</span></td>
+        <td class="gs">${fmt(r.width.album)}</td><td>${fmt(r.width.gen)}</td>${d(r.width.diff, 2)}
+        <td class="gs">${r.axes.album}</td><td>${r.axes.gen}</td>${d(r.axes.diff, 0)}
+        <td class="gs">${fmt(r.cornice.album)}</td><td>${fmt(r.cornice.gen)}</td>${d(r.cornice.diff, 2)}
+        <td class="gs ${r.axisShift < 1e-9 ? 'zero' : 'nz'}">${fmt(r.axisShift, 3)}</td><td class="${r.levelShift < 1e-9 ? 'zero' : 'nz'}">${fmt(r.levelShift, 2)}</td>
+        <td><button type="button" data-open="${r.id}">открыть</button></td></tr>`;
+    }
+    html += '</tbody>';
+    $('vtable').innerHTML = html;
+    $('vtable').querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => { setStyle(b.dataset.open); document.getElementById('controls').scrollIntoView({ behavior: 'smooth' }); }));
+    const notes = rows.filter((r) => r.ok && (r.axisShift > 1e-9 || r.levelShift > 1e-9)).map((r) => {
+      const parts = [];
+      if (r.axisShift > 1e-9) parts.push(`положения осей отличаются от осей чертежа до ${fmt(r.axisShift, 3)} м`);
+      if (r.levelShift > 1e-9) parts.push(`отметки этажей — до ${fmt(r.levelShift, 2)} м`);
+      return `${r.id}: ${parts.join('; ')}.` + (r.notes.length ? ' ' + r.notes.filter((n) => /^G2/.test(n)).join(' ') : '');
+    });
+    $('vfoot').textContent = (notes.length ? 'Ненулевые дополнительные расхождения: ' + notes.join(' ') + ' ' : '') + 'Сравнение точное — без допуска ±0,5 м альбома.';
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
