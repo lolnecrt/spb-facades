@@ -328,6 +328,7 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
   function refreshWidth() {
     const wr = G.widthRange(DATA, state.style, state.floors, state.options);
     const min = wr.min || 1;
+    state.minWidth = wr.min;
     for (const el of [$('width'), $('widthRange')]) { el.min = min; el.max = G.W_MAX; }
     $('widthHint').textContent = `От ${fmt(min)} до ${fmt(G.W_MAX, 0)} м. Альбом: ${fmt(G.getStyle(DATA, state.style).album.width_m)} м.`;
   }
@@ -338,7 +339,8 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
     const err = $('error');
     if (!g.ok) {
       err.hidden = false;
-      err.innerHTML = `<strong>Фасад не построен.</strong> ${escapeHtml(g.error)}`;
+      const hint = state.minWidth && state.width < state.minWidth ? ` Минимальная ширина для этих параметров — ${fmt(state.minWidth)} м.` : '';
+      err.innerHTML = `<strong>Фасад не построен.</strong> ${escapeHtml(g.error)}${hint}`;
       $('drawing').style.opacity = '0.25';
       $('download').disabled = true;
       return;
