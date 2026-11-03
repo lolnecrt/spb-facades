@@ -68,7 +68,7 @@
           { "part": "фриз орнаментальный", "height_m": 0.75 },
           { "part": "карниз с модульонами", "height_m": 1.15 }
         ],
-        "roof": { "kind": "кровля с решёткой", "height_m": 1.0, "inset_m": 0.5 }
+        "roof": { "kind": "кровля с решёткой", "height_m": 1.0, "bottom_inset_m": 0.5, "top_inset_m": 1.7 }
       },
       "windows": {
         "row": {
@@ -153,7 +153,7 @@
         "crown": [
           { "part": "простой карниз с сухариками", "height_m": 1.2 }
         ],
-        "roof": { "kind": "скатная кровля", "height_m": 1.3, "inset_m": 1.8 }
+        "roof": { "kind": "скатная кровля", "height_m": 1.3, "bottom_inset_m": 0.4, "top_inset_m": 2.2 }
       },
       "windows": {
         "row": {
@@ -229,7 +229,7 @@
           { "part": "фриз с парными кронштейнами", "height_m": 0.7 },
           { "part": "карниз с сухариками", "height_m": 1.0 }
         ],
-        "roof": null
+        "roof": { "kind": "кровля (только на чертеже, в записи обмера нет)", "height_m": 0.9, "bottom_inset_m": 0.3, "top_inset_m": 1.7 }
       },
       "windows": {
         "row": {
@@ -259,7 +259,7 @@
       ],
       "erker": null,
       "balconies": [
-        { "zone": "center", "floor": 4, "w_m": 3.9, "slab_h_m": 0.18, "rail_h_m": 1.0, "rail": "кованая решётка" }
+        { "zone": "center", "floor": 4, "w_m": 3.9, "slab_z_above_floor_m": -0.08, "slab_h_m": 0.18, "rail_h_m": 1.0, "rail": "кованая решётка" }
       ],
       "parapet": null,
       "notes": [
@@ -382,7 +382,7 @@
         "brow": { "w_m": 4.3, "rise_m": 0.68, "note": "изогнутая «бровка», верх ≈+23,08 (по кривой чертежа)" }
       },
       "balconies": [
-        { "zone": "axis2", "floor": 3, "kind": "французский балкон", "w_m": 2.3, "rail_h_m": 0.85, "rail": "решётка" }
+        { "zone": "axis2", "floor": 3, "kind": "французский балкон", "w_m": 2.4, "slab_z_above_floor_m": 0.13, "slab_h_m": 0.0, "rail_h_m": 0.82, "rail": "решётка" }
       ],
       "notes": [
         "Шаг осей null: оси разной ширины (узкая 1,0 / широкая 2,1 / эркер 3,9 / средняя 1,6 м).",
@@ -441,8 +441,8 @@
           { "part": "антаблемент с сухариками", "height_m": 1.8 }
         ],
         "attic_floor": { "height_m": 1.9, "finish": "smooth", "note": "аттиковый этаж с лопатками и филёнками", "zone": "center" },
-        "risalit_crown": { "lopatka_top_m": 19.6, "cornice_top_m": 21.5, "cornice_h_m": 1.0 },
-        "roof": { "kind": "кровля", "height_m": 1.0, "inset_m": 0.2, "risalit_height_m": 0.85 }
+        "risalit_crown": { "note": "отсчёт от верха 5-го этажа (+18,5)", "lopatka_top_above_m": 1.1, "frieze_m": [1.2, 2.05], "cornice_m": [2.05, 2.3], "cornice_projection_m": 0.25, "top_above_m": 3.0, "top_mark_m": 21.5 },
+        "roof": { "kind": "кровля", "height_m": 1.0, "bottom_inset_m": 0.2, "top_inset_m": 1.1, "risalit": { "height_m": 0.85, "bottom_inset_m": 0.1, "top_inset_m": 0.8 } }
       },
       "windows": {
         "center": {
@@ -482,7 +482,7 @@
       "erker": null,
       "balconies": [
         { "zone": "risalit", "floor": 3, "w_m": 4.5, "slab_z_above_floor_m": 0.18, "slab_h_m": 0.22, "rail_h_m": 1.1, "rail": "кованая решётка" },
-        { "zone": "risalit", "floor": 4, "w_m": 3.9, "slab_z_above_floor_m": 0.7, "slab_h_m": 0.2, "rail_h_m": 1.0, "rail": "кованая решётка" }
+        { "zone": "risalit", "floor": 4, "w_m": 3.9, "slab_z_above_floor_m": 0.7, "slab_h_m": 0.2, "rail_h_m": 1.1, "rail": "кованая решётка" }
       ],
       "parapet": null,
       "notes": [
@@ -544,7 +544,7 @@
           { "part": "фриз", "height_m": 0.85 },
           { "part": "большой карниз с модульонами (вынос ≈1 м)", "height_m": 1.5 }
         ],
-        "roof": { "kind": "вальмовая кровля", "height_m": 2.8, "inset_m": 0.2, "ridge_inset_m": 3.5 }
+        "roof": { "kind": "вальмовая кровля", "height_m": 2.8, "bottom_inset_m": 0.2, "top_inset_m": 6.2 }
       },
       "windows": {
         "row": {
