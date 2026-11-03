@@ -224,7 +224,9 @@
     if (span <= 0) return { error: `Ширина меньше двух полей у краёв (${fmt(2 * e)} м).` };
     const cands = [];
     const n0 = Math.round(span / target) + 1;
-    for (let n = Math.max(2, n0 - 4); n <= n0 + 4; n++) {
+    // перебираются все числа осей; первым идёт шаг, ближайший к заданному,
+    // дальше — следующие по близости, пока проёмы не поместятся (T2)
+    for (let n = 2; n <= n0 + 4; n++) {
       if (!constraint(n)) continue;
       const s = span / (n - 1);
       cands.push({ n, s, d: Math.abs(s - target) });
