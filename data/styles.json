@@ -1,0 +1,611 @@
+{
+  "about": {
+    "title": "Параметры шести типов фасадов для генератора",
+    "source": "facades.html (альбом «Шесть фасадов Адмиралтейского района»); facades.pdf — та же версия для печати",
+    "method": "Чертежи альбома — реконструкция по фотографиям и контурам OpenStreetMap с помощью ИИ (Claude), не натурный обмер. Высоты ±0,5 м.",
+    "taken_from_album": "Только размеры: оси, высоты, окна, членения. Числа взяты из размерных цепочек и отметок чертежей, из записей обмера и из JSON альбома; мелкие размеры (подоконники, ширины проёмов, пояса) сняты с геометрии чертежей (М 1:200, у дома 01 — 1:400; 10 единиц SVG = 1 м).",
+    "null_means": "Размера нет в альбоме.",
+    "units": "м (цепочки — мм, как на чертежах)",
+    "x_origin": "левый край фасада",
+    "z_origin": "±0,000 — уровень тротуара"
+  },
+  "limit": {
+    "cornice_max_m": 23.5,
+    "text": "предел 23,5 м = 11 саженей (карниз Зимнего дворца), правило 1844 г."
+  },
+  "styles": [
+    {
+      "id": "01",
+      "key": "classicism",
+      "name": "Классицизм",
+      "house": {
+        "album_id": "lobanov",
+        "address": "Адмиралтейский пр., 12",
+        "title": "Дом кн. А. Я. Лобанова-Ростовского",
+        "years": "1817–1820",
+        "architect": "О. Монферран",
+        "style_in_album": "классицизм (ампир)",
+        "link": "facades.html#lobanov",
+        "sheet_scale": "1:400"
+      },
+      "album": {
+        "width_m": 95.0,
+        "floors": 3,
+        "axes": 25,
+        "axis_step_m": { "risalit": 3.3, "wing": 3.5, "portico": 3.15 },
+        "cornice_m": 19.6,
+        "wall_top_m": 20.88,
+        "top_m": 23.23,
+        "top_kind": "скульптурная группа над портиком",
+        "axis_positions_m": [4.75, 8.05, 11.35, 16.35, 19.85, 23.35, 26.85, 30.35, 33.85, 38.05, 41.2, 44.35, 47.5, 50.65, 53.8, 56.95, 61.15, 64.65, 68.15, 71.65, 75.15, 78.65, 83.65, 86.95, 90.25],
+        "floor_levels_m": [1.8, 8.35, 13.0],
+        "vertical_chain_mm": [1800, 5100, 1450, 4650, 4100, 2500],
+        "horizontal_chain_mm": [14600, 21000, 23800, 21000, 14600],
+        "marks_m": [0, 8.35, 17.1, 19.6, 23.23]
+      },
+      "plan": {
+        "scheme": "five_part",
+        "parts": [
+          { "kind": "risalit", "name": "угловой ризалит", "axes": 3, "axis_step_m": 3.3, "width_m": 14.6, "margin_outer_m": 4.75, "margin_inner_m": 3.25 },
+          { "kind": "wing", "name": "крыло", "axes": 6, "axis_step_m": 3.5, "width_m": 21.0, "margin_m": 1.75 },
+          { "kind": "portico", "name": "портик", "axes": 7, "axis_step_m": 3.15, "width_m": 23.8, "margin_m": 2.45, "column_to_edge_m": 0.875, "columns": 8, "projection_m": 2.9 }
+        ],
+        "mirror": true
+      },
+      "section": {
+        "plinth_m": 1.8,
+        "plinth_finish": "гранитный цоколь с подвальными окнами",
+        "floors": [
+          { "floor": 1, "height_m": 5.1, "finish": "rust", "rust": "ленточный руст, над арками веерный", "rust_course_m": 0.46 },
+          { "floor": 2, "height_m": 4.65, "finish": "smooth", "note": "под ордером" },
+          { "floor": 3, "height_m": 4.1, "finish": "smooth", "note": "под ордером" }
+        ],
+        "between": [
+          { "after_floor": 1, "height_m": 1.45, "name": "мощный пояс и стилобат с балюстрадами", "belt_m": 0.5 }
+        ],
+        "crown": [
+          { "part": "архитрав", "height_m": 0.6 },
+          { "part": "фриз орнаментальный", "height_m": 0.75 },
+          { "part": "карниз с модульонами", "height_m": 1.15 }
+        ],
+        "roof": { "kind": "кровля с решёткой", "height_m": 1.0, "inset_m": 0.5 }
+      },
+      "windows": {
+        "row": {
+          "1": { "shape": "arch", "w_m": 1.3, "h_m": 3.0, "sill_above_floor_m": 0.7, "frame": "веерный руст над арками" },
+          "2": { "shape": "rect", "w_m": 1.4, "h_m": 2.35, "sill_above_floor_m": 0.0, "frame": "наличник", "sandrik": "triangle", "sandrik_w_m": 2.02, "sandrik_h_m": 0.48, "sandrik_gap_m": 0.36 },
+          "3": { "shape": "rect", "w_m": 1.4, "h_m": 2.0, "sill_above_floor_m": 0.0, "frame": "простой наличник", "sandrik": null }
+        },
+        "portico": {
+          "1": { "shape": "arch", "w_m": 2.0, "h_m": 4.9, "sill_above_floor_m": -0.8, "frame": "аркада", "kind": "arcade" }
+        }
+      },
+      "portico_podium_m": 1.0,
+      "belts": [
+        { "at": "floor_top", "floor": 1, "z_offset_m": 0.0, "height_m": 0.5, "weight": "strong", "name": "мощный пояс" }
+      ],
+      "order": {
+        "type": "коринфский",
+        "floors": "2–3",
+        "base_z_m": 8.35,
+        "top_z_m": 17.1,
+        "height_m": 8.75,
+        "portico": { "columns": 8, "diameter_m": 1.0, "position": "между осями портика и по краям" },
+        "risalit": { "columns": 2, "diameter_m": 0.96, "position": "in antis: между осями 1|2 и 2|3", "pylon_pilaster_x_m": 2.65, "inner_pilaster_x_m": 13.45, "pilaster_w_m": 0.9 }
+      },
+      "attic": { "over": "портик", "half_width_m": 4.9, "cap_half_width_m": 5.1, "height_m": 1.28, "sculpture_half_width_m": 3.2, "sculpture_top_m": 23.23 },
+      "gate": null,
+      "doors": null,
+      "erker": null,
+      "balconies": null,
+      "parapet": null,
+      "notes": [
+        "Шаг неодинаковый: крылья 3,5 м, ризалиты 3,3 м, портик 3,15 м (запись обмера).",
+        "Высоты этажей в JSON альбома — null; здесь они сняты с размерной цепочки чертежа: 1800 / 5100 / 1450 / 4650 / 4100 / 2500 мм.",
+        "Ось 1 ризалита отстоит от угла на 4,75 м (глухой угловой пилон), ось 3 — от края ризалита на 3,25 м (по оси чертежа)."
+      ]
+    },
+    {
+      "id": "02",
+      "key": "row1840",
+      "name": "Рядовой дом 1840-х",
+      "house": {
+        "album_id": "dek16",
+        "address": "ул. Декабристов, 16",
+        "title": "Доходный дом",
+        "years": "1847",
+        "architect": "Н. П. Гребёнка",
+        "style_in_album": "поздний классицизм, рядовая застройка",
+        "link": "facades.html#dek16",
+        "sheet_scale": "1:200"
+      },
+      "album": {
+        "width_m": 35.9,
+        "floors": 4,
+        "axes": 16,
+        "axis_step_m": 2.24,
+        "cornice_m": 16.9,
+        "wall_top_m": 16.9,
+        "top_m": 18.2,
+        "top_kind": "кровля",
+        "axis_positions_m": [1.15, 3.39, 5.63, 7.87, 10.11, 12.35, 14.59, 16.83, 19.07, 21.31, 23.55, 25.79, 28.03, 30.27, 32.51, 34.75],
+        "floor_levels_m": [0.6, 4.2, 7.9, 11.9],
+        "vertical_chain_mm": [3600, 3700, 4000, 3800, 1200],
+        "horizontal_chain_mm": [1150, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 2240, 1150],
+        "marks_m": [0, 4.2, 7.9, 11.9, 15.7, 16.9]
+      },
+      "plan": {
+        "scheme": "row",
+        "axes": 16,
+        "axis_step_m": 2.24,
+        "edge_margin_m": 1.15
+      },
+      "section": {
+        "plinth_m": 0.6,
+        "plinth_finish": "невысокий гранитный цоколь",
+        "floors": [
+          { "floor": 1, "height_m": 3.6, "finish": "rust", "rust": "горизонтальный руст", "rust_course_m": 0.45 },
+          { "floor": 2, "height_m": 3.7, "finish": "smooth" },
+          { "floor": 3, "height_m": 4.0, "finish": "smooth", "note": "самый высокий этаж дома" },
+          { "floor": 4, "height_m": 3.8, "finish": "smooth" }
+        ],
+        "between": [],
+        "crown": [
+          { "part": "простой карниз с сухариками", "height_m": 1.2 }
+        ],
+        "roof": { "kind": "скатная кровля", "height_m": 1.3, "inset_m": 1.8 }
+      },
+      "windows": {
+        "row": {
+          "1": { "shape": "arch", "w_m": 1.0, "h_m": 2.3, "sill_above_floor_m": 0.6, "frame": "арочное обрамление" },
+          "2": { "shape": "rect", "w_m": 1.0, "h_m": 2.0, "sill_above_floor_m": 0.8, "frame": "простой наличник, подоконник на кронштейнах" },
+          "3": { "shape": "rect", "w_m": 1.0, "h_m": 2.1, "sill_above_floor_m": 0.95, "frame": "наличник с прямым сандриком, подоконная филёнка", "sandrik": "straight", "sandrik_w_m": 1.5, "sandrik_h_m": 0.36, "sandrik_gap_m": 0.13, "panel_below": true },
+          "4": { "shape": "rect", "w_m": 1.0, "h_m": 1.9, "sill_above_floor_m": 0.7, "frame": "простой наличник" }
+        }
+      },
+      "belts": [
+        { "at": "floor_top", "floor": 1, "z_offset_m": -0.15, "height_m": 0.18, "weight": "thin", "name": "тонкая тяга над 1-м этажом" },
+        { "at": "floor_top", "floor": 2, "z_offset_m": 0.0, "height_m": 0.3, "weight": "strong", "name": "сильный пояс между 2-м и 3-м этажами" }
+      ],
+      "order": null,
+      "attic": null,
+      "gate": { "w_m": 3.0, "h_m": 3.85, "shape": "arch", "position": "center", "note": "ворота-арка ровно посередине, на месте окон 8-й и 9-й осей 1-го этажа" },
+      "doors": [
+        { "axis": "first", "w_m": 1.0, "z0_m": 0.15, "top_m": 3.55, "shape": "arch", "note": "на 1-й оси вместо окна — арочная дверь" }
+      ],
+      "erker": null,
+      "balconies": null,
+      "parapet": null,
+      "notes": [
+        "Вертикальных элементов нет: ни пилястр, ни балконов, ни эркеров (запись обмера).",
+        "Отметка 1-го этажа +0,6 (цоколь) на чертеже не подписана, но следует из цепочки: 0,6 + 3,6 = +4,2."
+      ]
+    },
+    {
+      "id": "03",
+      "key": "eclectic",
+      "name": "Эклектика",
+      "house": {
+        "album_id": "sad119",
+        "address": "Садовая ул., 119",
+        "title": "Доходный дом у Калинкина моста",
+        "years": "1893",
+        "architect": "И. Н. Иорс",
+        "style_in_album": "эклектика",
+        "link": "facades.html#sad119",
+        "sheet_scale": "1:200"
+      },
+      "album": {
+        "width_m": 21.5,
+        "floors": 4,
+        "axes": 9,
+        "axis_step_m": 2.15,
+        "cornice_m": 19.6,
+        "wall_top_m": 22.9,
+        "top_m": 22.9,
+        "top_kind": "аттик над центром",
+        "axis_positions_m": [1.12, 3.27, 5.42, 7.57, 10.75, 13.93, 16.08, 18.23, 20.38],
+        "floor_levels_m": [0.5, 5.6, 10.0, 14.4],
+        "vertical_chain_mm": [5100, 4400, 4400, 5200, 3300],
+        "horizontal_chain_mm": [1120, 2150, 2150, 2150, 1080, 4200, 1080, 2150, 2150, 2150, 1120],
+        "marks_m": [0, 5.6, 10.0, 14.4, 19.6, 22.9]
+      },
+      "plan": {
+        "scheme": "center_risalit",
+        "side": { "axes": 4, "axis_step_m": 2.15, "margin_outer_m": 1.12, "margin_inner_m": 1.08, "width_m": 8.65 },
+        "center": { "width_m": 4.2, "axes": 1, "paired_offset_m": 0.75, "lopatka_w_m": 0.45, "lopatka_finish": "rust", "rust_course_m": 0.5 }
+      },
+      "section": {
+        "plinth_m": 0.5,
+        "plinth_finish": "цоколь",
+        "floors": [
+          { "floor": 1, "height_m": 5.1, "finish": "smooth", "note": "лавки; в JSON альбома 5,6 — вместе с цоколем" },
+          { "floor": 2, "height_m": 4.4, "finish": "smooth" },
+          { "floor": 3, "height_m": 4.4, "finish": "smooth" },
+          { "floor": 4, "height_m": 3.5, "finish": "smooth" }
+        ],
+        "between": [],
+        "crown": [
+          { "part": "фриз с парными кронштейнами", "height_m": 0.7 },
+          { "part": "карниз с сухариками", "height_m": 1.0 }
+        ],
+        "roof": null
+      },
+      "windows": {
+        "row": {
+          "1": { "shape": "rect", "w_m": 1.05, "h_m": 2.05, "sill_above_floor_m": 2.15, "frame": "прямоугольные" },
+          "2": { "shape": "rect", "w_m": 1.05, "h_m": 2.6, "sill_above_floor_m": 0.7, "frame": "прямой сандрик и маленький картуш, под окнами филёнки", "sandrik": "straight", "sandrik_w_m": 1.55, "sandrik_h_m": 0.36, "sandrik_gap_m": 0.13 },
+          "3": { "shape": "arch", "w_m": 1.05, "h_m": 2.5, "sill_above_floor_m": 0.8, "frame": "архивольты и замковые камни" },
+          "4": { "shape": "arch", "w_m": 1.05, "h_m": 2.3, "sill_above_floor_m": 0.9, "frame": "арочные попроще" }
+        },
+        "center": {
+          "1": null,
+          "2": { "shape": "rect", "w_m": 1.0, "h_m": 2.6, "sill_above_floor_m": 0.7, "paired": true },
+          "3": { "shape": "arch", "w_m": 1.0, "h_m": 2.5, "sill_above_floor_m": 0.8, "paired": true },
+          "4": { "shape": "arch", "w_m": 1.0, "h_m": 3.05, "sill_above_floor_m": 0.15, "paired": true, "note": "двери на балкон" }
+        }
+      },
+      "extreme_axes": { "floor": 3, "pediment": "segment", "pediment_w_m": 1.75, "pediment_h_m": 0.44, "gap_above_window_m": 0.45, "note": "лучковые фронтоны на консолях" },
+      "belts": [
+        { "at": "floor_top", "floor": 1, "z_offset_m": -0.3, "height_m": 0.3, "weight": "normal", "name": "пояс над 1-м этажом" },
+        { "at": "floor_top", "floor": 2, "z_offset_m": -0.4, "height_m": 0.4, "weight": "strong", "name": "мощный пояс между 2-м и 3-м этажами" },
+        { "at": "floor_top", "floor": 3, "z_offset_m": 0.0, "height_m": null, "weight": "thin", "name": "тонкая тяга под 4-м этажом" }
+      ],
+      "order": null,
+      "attic": { "over": "центральный ризалит", "base_w_m": 4.7, "base_h_m": 1.3, "cornice_w_m": 5.0, "cornice_h_m": 0.15, "step_w_m": 2.6, "step_h_m": 0.55, "pediment": "semicircle", "pediment_r_m": 1.3, "top_m": 22.9 },
+      "gate": { "w_m": 3.0, "h_m": 4.8, "shape": "arch", "position": "center", "frame_w_m": 3.4 },
+      "doors": [
+        { "axis": "left_of_center", "w_m": 1.2, "z0_m": 0.3, "top_m": 2.85, "shape": "rect", "note": "вход — по 4-й оси" }
+      ],
+      "erker": null,
+      "balconies": [
+        { "zone": "center", "floor": 4, "w_m": 3.9, "slab_h_m": 0.18, "rail_h_m": 1.0, "rail": "кованая решётка" }
+      ],
+      "parapet": null,
+      "notes": [
+        "Стена тёмно-красная, декор светлый (запись обмера) — цвет генератор не передаёт.",
+        "В JSON альбома этажи [5,6; 4,4; 4,4; 3,5]: 5,6 — 1-й этаж вместе с цоколем 0,5 м.",
+        "Высота тонкой тяги под 4-м этажом в альбоме не дана — рисуется линией."
+      ]
+    },
+    {
+      "id": "04",
+      "key": "modern",
+      "name": "Модерн",
+      "house": {
+        "album_id": "pis10",
+        "address": "ул. Писарева, 10",
+        "title": "Доходный дом Козляниновых",
+        "years": "1907–1908",
+        "architect": "А. И. фон Гоген",
+        "style_in_album": "модерн (северный)",
+        "link": "facades.html#pis10",
+        "sheet_scale": "1:200"
+      },
+      "album": {
+        "width_m": 15.7,
+        "floors": 6,
+        "axes": 4,
+        "axis_step_m": null,
+        "cornice_m": null,
+        "parapet_top_m": 23.3,
+        "parapet_min_m": 21.9,
+        "wall_top_m": 23.3,
+        "top_m": 23.3,
+        "top_kind": "волнистый парапет (карниза нет)",
+        "axis_positions_m": [2.4, 4.9, 8.75, 12.7],
+        "floor_levels_m": [0.0, 4.4, 7.4, 10.9, 14.4, 17.9],
+        "vertical_chain_mm": [4400, 3000, 3500, 3500, 3500, 3500, 1900],
+        "horizontal_chain_mm": [2400, 2500, 3850, 3950, 3000],
+        "marks_m": [0, 7.4, 21.9, 23.3]
+      },
+      "plan": {
+        "scheme": "free_axes",
+        "axes": [
+          { "axis": 1, "x_m": 2.4, "kind": "узкая", "window_w_m": 1.0 },
+          { "axis": 2, "x_m": 4.9, "kind": "широкая (тройное окно)", "window_w_m": 2.1 },
+          { "axis": 3, "x_m": 8.75, "kind": "эркер", "window_w_m": 1.5, "erker": true },
+          { "axis": 4, "x_m": 12.7, "kind": "средняя", "window_w_m": 1.6 }
+        ],
+        "erker_offset_from_center_m": 0.9
+      },
+      "section": {
+        "plinth_m": 0.0,
+        "plinth_finish": "нет отдельного цоколя: два нижних этажа — единый цоколь из рваного гранита",
+        "floors": [
+          { "floor": 1, "height_m": 4.4, "finish": "granite", "note": "проезд, витрина", "rust_course_m": 0.62 },
+          { "floor": 2, "height_m": 3.0, "finish": "granite", "note": "низкий, в граните" },
+          { "floor": 3, "height_m": 3.5, "finish": "brick" },
+          { "floor": 4, "height_m": 3.5, "finish": "brick" },
+          { "floor": 5, "height_m": 3.5, "finish": "brick" },
+          { "floor": 6, "height_m": 3.5, "finish": "brick" }
+        ],
+        "between": [],
+        "granite_top_m": 7.0,
+        "crown": [],
+        "roof": null
+      },
+      "parapet": {
+        "kind": "волнистый",
+        "profile_m": [[0.0, 0.5], [1.5, 0.55], [3.0, 0.75], [4.5, 1.1], [5.6, 1.45], [6.4, 1.7], [6.8, 1.75], [10.7, 1.75], [10.9, 1.9], [15.4, 1.9], [15.7, 1.75]],
+        "profile_note": "x — от левого края фасада (по альбомной ширине 15,7 м), z — над верхом 6-го этажа (+21,4)"
+      },
+      "windows": {
+        "axis1": {
+          "2": { "shape": "arch", "w_m": 1.0, "h_m": 1.35, "sill_above_floor_m": 1.0 },
+          "3": { "shape": "arch", "w_m": 1.0, "h_m": 2.2, "sill_above_floor_m": 0.8 },
+          "4": { "shape": "rect", "w_m": 1.0, "h_m": 2.0, "sill_above_floor_m": 0.8 },
+          "5": { "shape": "rect", "w_m": 1.0, "h_m": 2.0, "sill_above_floor_m": 0.8 },
+          "6": { "shape": "arch", "w_m": 1.0, "h_m": 1.75, "sill_above_floor_m": 0.7 }
+        },
+        "axis2": {
+          "2": { "shape": "arch", "w_m": 2.1, "h_m": 1.5, "sill_above_floor_m": 0.9 },
+          "3": { "shape": "arch", "w_m": 2.1, "h_m": 2.9, "sill_above_floor_m": 0.15, "note": "дверь на французский балкон" },
+          "4": { "shape": "rect", "w_m": 2.1, "h_m": 2.0, "sill_above_floor_m": 0.8, "mullions": 2 },
+          "5": { "shape": "rect", "w_m": 2.1, "h_m": 2.0, "sill_above_floor_m": 0.8, "mullions": 2 },
+          "6": { "shape": "arch", "w_m": 2.1, "h_m": 1.75, "sill_above_floor_m": 0.7 }
+        },
+        "erker": {
+          "3": { "shape": "rect", "w_m": 1.5, "h_m": 2.0, "sill_above_floor_m": 0.8, "side_w_m": 0.34, "side_offset_m": 1.65 },
+          "4": { "shape": "rect", "w_m": 1.5, "h_m": 2.0, "sill_above_floor_m": 0.8, "side_w_m": 0.34, "side_offset_m": 1.65 },
+          "5": { "shape": "rect", "w_m": 1.5, "h_m": 2.0, "sill_above_floor_m": 0.8, "side_w_m": 0.34, "side_offset_m": 1.65 },
+          "6": { "shape": "rect", "w_m": 1.5, "h_m": 1.7, "sill_above_floor_m": 0.7, "side_w_m": 0.34, "side_offset_m": 1.65 }
+        },
+        "axis4": {
+          "3": { "shape": "arch", "w_m": 1.6, "h_m": 2.2, "sill_above_floor_m": 0.8 },
+          "4": { "shape": "rect", "w_m": 1.6, "h_m": 2.0, "sill_above_floor_m": 0.8 },
+          "5": { "shape": "rect", "w_m": 1.6, "h_m": 2.0, "sill_above_floor_m": 0.8 },
+          "6": { "shape": "arch", "w_m": 1.6, "h_m": 1.75, "sill_above_floor_m": 0.7 }
+        }
+      },
+      "ground_floor": [
+        { "kind": "door", "x_m": 1.2, "w_m": 1.1, "z0_m": 0.0, "h_m": 2.9, "shape": "rect" },
+        { "kind": "vitrine", "x_m": 4.0, "w_m": 2.2, "z0_m": 0.9, "h_m": 2.5, "shape": "rect" },
+        { "kind": "gate", "x_m": 8.75, "w_m": 2.9, "z0_m": 0.0, "h_m": 3.7, "shape": "rect", "note": "проезд под эркером" },
+        { "kind": "door", "x_m": 12.95, "w_m": 1.5, "z0_m": 0.05, "h_m": 3.55, "shape": "rect", "note": "вход" },
+        { "kind": "lunette", "x_m": 12.95, "w_m": 1.36, "z0_m": 5.3, "h_m": 0.68, "shape": "lunette", "note": "люнет над входом, 2-й этаж" }
+      ],
+      "belts": [
+        { "at": "z", "z_m": 7.0, "height_m": 0.4, "weight": "strong", "name": "каменный пояс над гранитным цоколем" }
+      ],
+      "order": null,
+      "attic": null,
+      "gate": { "w_m": 2.9, "h_m": 3.7, "shape": "rect", "position": "под эркером" },
+      "doors": null,
+      "erker": {
+        "shape": "скруглённый",
+        "w_m": 3.9,
+        "from_floor": 3,
+        "z0_m": 7.4,
+        "top_above_last_floor_m": 1.0,
+        "console_h_m": 1.9,
+        "brow": { "w_m": 4.3, "rise_m": 0.68, "note": "изогнутая «бровка», верх ≈+23,08 (по кривой чертежа)" }
+      },
+      "balconies": [
+        { "zone": "axis2", "floor": 3, "kind": "французский балкон", "w_m": 2.3, "rail_h_m": 0.85, "rail": "решётка" }
+      ],
+      "notes": [
+        "Шаг осей null: оси разной ширины (узкая 1,0 / широкая 2,1 / эркер 3,9 / средняя 1,6 м).",
+        "Отметка карниза null: карниза нет, верх стены — волнистый парапет от +21,9 до +23,3.",
+        "Ширины окон в записи обмера: 1,0 / 2,1 / 1,5 / 1,6 м."
+      ]
+    },
+    {
+      "id": "05",
+      "key": "neoclassicism",
+      "name": "Неоклассицизм",
+      "house": {
+        "album_id": "ler8a",
+        "address": "Лермонтовский пр., 8А",
+        "title": "Доходный дом Б. В. Печаткина",
+        "years": "1914–1915",
+        "architect": "Н. И. Алексеев",
+        "style_in_album": "неоклассицизм",
+        "link": "facades.html#ler8a",
+        "sheet_scale": "1:200"
+      },
+      "album": {
+        "width_m": 34.2,
+        "floors": 6,
+        "axes": 8,
+        "axis_step_m": 3.37,
+        "cornice_m": 20.3,
+        "risalit_cornice_m": 21.5,
+        "wall_top_m": 22.2,
+        "top_m": 23.2,
+        "top_kind": "кровля",
+        "axis_positions_m": [3.25, 8.683, 12.05, 15.417, 18.783, 22.15, 25.517, 30.95],
+        "floor_levels_m": [0.0, 4.4, 8.2, 12.0, 15.6, 20.3],
+        "vertical_chain_mm": [4400, 3800, 3800, 3600, 2900, 1800, 1900],
+        "horizontal_chain_mm": [3250, 5430, 3370, 3370, 3370, 3370, 3370, 5430, 3250],
+        "marks_m": [0, 8.2, 20.3, 21.5, 23.2]
+      },
+      "plan": {
+        "scheme": "side_risalits",
+        "risalit": { "width_m": 6.5, "axes": 1, "lopatka_w_m": 0.6 },
+        "center": { "axes": 6, "axis_step_m": 3.37, "margin_m": 2.175 }
+      },
+      "section": {
+        "plinth_m": 0.0,
+        "plinth_finish": "двухэтажная база из рваного гранита",
+        "floors": [
+          { "floor": 1, "height_m": 4.4, "finish": "granite", "rust_course_m": 0.7 },
+          { "floor": 2, "height_m": 3.8, "finish": "granite" },
+          { "floor": 3, "height_m": 3.8, "finish": "smooth", "note": "колоссальный ордер" },
+          { "floor": 4, "height_m": 3.6, "finish": "smooth", "note": "колоссальный ордер" },
+          { "floor": 5, "height_m": 2.9, "finish": "smooth", "note": "колоссальный ордер" }
+        ],
+        "between": [],
+        "granite_top_m": 7.8,
+        "crown": [
+          { "part": "антаблемент с сухариками", "height_m": 1.8 }
+        ],
+        "attic_floor": { "height_m": 1.9, "finish": "smooth", "note": "аттиковый этаж с лопатками и филёнками", "zone": "center" },
+        "risalit_crown": { "lopatka_top_m": 19.6, "cornice_top_m": 21.5, "cornice_h_m": 1.0 },
+        "roof": { "kind": "кровля", "height_m": 1.0, "inset_m": 0.2, "risalit_height_m": 0.85 }
+      },
+      "windows": {
+        "center": {
+          "1": { "shape": "rect", "w_m": 1.75, "h_m": 1.8, "sill_above_floor_m": 1.7, "frame": "в граните без наличников" },
+          "2": { "shape": "rect", "w_m": 1.75, "h_m": 2.0, "sill_above_floor_m": 0.9, "frame": "в граните без наличников" },
+          "3": { "shape": "rect", "w_m": 1.75, "h_m": 2.0, "sill_above_floor_m": 0.8 },
+          "4": { "shape": "rect", "w_m": 1.75, "h_m": 2.0, "sill_above_floor_m": 0.9 },
+          "5": { "shape": "rect", "w_m": 1.75, "h_m": 1.7, "sill_above_floor_m": 0.9 },
+          "attic": { "shape": "rect", "w_m": 1.75, "h_m": 1.3, "sill_above_floor_m": 0.15 }
+        },
+        "risalit": {
+          "1": null,
+          "2": { "shape": "rect", "w_m": 2.8, "h_m": 1.9, "sill_above_floor_m": 1.2, "mullions": 2 },
+          "3": { "shape": "rect", "w_m": 2.8, "h_m": 2.85, "sill_above_floor_m": 0.55, "mullions": 2, "note": "выход на балкон" },
+          "4": { "shape": "rect", "w_m": 2.8, "h_m": 2.8, "sill_above_floor_m": 1.0, "mullions": 2, "sandrik": "triangle", "sandrik_w_m": 3.5, "sandrik_h_m": 0.83, "sandrik_gap_m": 0.52 },
+          "5": { "shape": "arch", "w_m": 1.8, "h_m": 1.85, "sill_above_floor_m": 1.75, "note": "полуциркульное окно" }
+        }
+      },
+      "portal": { "w_m": 3.7, "pilaster_w_m": 0.44, "pilaster_offset_m": 1.5, "h_m": 3.95, "lintel_h_m": 0.45, "pediment_w_m": 3.9, "pediment_h_m": 0.95, "door_w_m": 2.3, "door_z0_m": 0.15, "door_h_m": 3.4 },
+      "belts": [
+        { "at": "z", "z_m": 7.8, "height_m": 0.4, "weight": "strong", "name": "пояс над гранитной базой" }
+      ],
+      "order": {
+        "type": "ионический (упрощ.)",
+        "floors": "3–5",
+        "pilasters": 7,
+        "pilaster_w_m": 1.0,
+        "base_z_m": 8.2,
+        "top_z_m": 18.5,
+        "height_m": 10.3,
+        "capital_h_m": 0.55,
+        "position": "между осями центра и по его краям"
+      },
+      "attic": null,
+      "gate": { "w_m": 3.0, "h_m": 3.5, "shape": "rect", "position": "3-я ось центра" },
+      "doors": null,
+      "erker": null,
+      "balconies": [
+        { "zone": "risalit", "floor": 3, "w_m": 4.5, "slab_z_above_floor_m": 0.18, "slab_h_m": 0.22, "rail_h_m": 1.1, "rail": "кованая решётка" },
+        { "zone": "risalit", "floor": 4, "w_m": 3.9, "slab_z_above_floor_m": 0.7, "slab_h_m": 0.2, "rail_h_m": 1.0, "rail": "кованая решётка" }
+      ],
+      "parapet": null,
+      "notes": [
+        "Высоты по размерной цепочке чертежа: 4400 / 3800 / 3800 / 3600 / 2900 / 1800 / 1900 мм. В записи обмера 5-й этаж ≈3,0 м, в JSON альбома этажи [4,4; 3,8; 3,8; 3,6; 3,0; 1,9] без антаблемента — взята цепочка, она сходится с отметками +8,2 / +20,3 / +22,2.",
+        "Ширина центра 21,2 м с 6 осями шага 3,37 даёт поля по 2,175 м; первая цепочка чертежа (3250 + 5430 + 5×3370 + 5430 + 3250) даёт 34 210 мм вместо 34 200 — расхождение 10 мм из-за округления шага.",
+        "Окно 4-го этажа ризалита (+13,0…+15,8) заходит за отметку 5-го этажа центра (+15,6) — так на чертеже."
+      ]
+    },
+    {
+      "id": "06",
+      "key": "soviet",
+      "name": "Советский дом",
+      "house": {
+        "album_id": "pech6",
+        "address": "ул. Союза Печатников, 6",
+        "title": "Жилой дом",
+        "years": "1956",
+        "architect": "не установлен",
+        "style_in_album": "сталинский неоклассицизм",
+        "link": "facades.html#pech6",
+        "sheet_scale": "1:200"
+      },
+      "album": {
+        "width_m": 32.7,
+        "floors": 5,
+        "axes": 9,
+        "axis_step_m": 3.6,
+        "cornice_m": 22.4,
+        "wall_top_m": 22.4,
+        "top_m": 25.2,
+        "top_kind": "вальмовая кровля",
+        "axis_positions_m": [1.95, 5.55, 9.15, 12.75, 16.35, 19.95, 23.55, 27.15, 30.75],
+        "floor_levels_m": [0.6, 4.3, 7.9, 11.5, 15.1],
+        "vertical_chain_mm": [3700, 3600, 3600, 3600, 3600, 900, 2800],
+        "horizontal_chain_mm": [1950, 3600, 3600, 3600, 3600, 3600, 3600, 3600, 3600, 1950],
+        "marks_m": [0, 7.9, 19.6, 22.4, 25.2]
+      },
+      "plan": {
+        "scheme": "row",
+        "axes": 9,
+        "axis_step_m": 3.6,
+        "edge_margin_m": 1.95,
+        "center_axes": 3
+      },
+      "section": {
+        "plinth_m": 0.6,
+        "plinth_finish": "цоколь",
+        "floors": [
+          { "floor": 1, "height_m": 3.7, "finish": "rust", "rust": "руст, веерный над арками", "rust_course_m": 0.5, "note": "в JSON альбома 4,3 — вместе с цоколем" },
+          { "floor": 2, "height_m": 3.6, "finish": "rust" },
+          { "floor": 3, "height_m": 3.6, "finish": "smooth" },
+          { "floor": 4, "height_m": 3.6, "finish": "smooth" },
+          { "floor": 5, "height_m": 3.6, "finish": "smooth" }
+        ],
+        "between": [],
+        "crown": [
+          { "part": "зона капителей", "height_m": 0.9 },
+          { "part": "архитрав", "height_m": 0.45 },
+          { "part": "фриз", "height_m": 0.85 },
+          { "part": "большой карниз с модульонами (вынос ≈1 м)", "height_m": 1.5 }
+        ],
+        "roof": { "kind": "вальмовая кровля", "height_m": 2.8, "inset_m": 0.2, "ridge_inset_m": 3.5 }
+      },
+      "windows": {
+        "row": {
+          "1": { "shape": "arch", "w_m": 1.7, "h_m": 2.95, "sill_above_floor_m": 0.35, "frame": "веерный руст и замковые камни" },
+          "2": { "shape": "rect", "w_m": 1.6, "h_m": 2.0, "sill_above_floor_m": 1.1 },
+          "3": { "shape": "rect", "w_m": 1.5, "h_m": 2.1, "sill_above_floor_m": 1.2, "frame": "«ушастые» наличники" },
+          "4": { "shape": "rect", "w_m": 1.5, "h_m": 2.0, "sill_above_floor_m": 1.2 },
+          "5": { "shape": "rect", "w_m": 1.5, "h_m": 1.9, "sill_above_floor_m": 1.2 }
+        },
+        "center_side": {
+          "3": { "shape": "rect", "w_m": 1.1, "h_m": 2.0, "sill_above_floor_m": 1.2 },
+          "4": { "shape": "rect", "w_m": 1.1, "h_m": 2.4, "sill_above_floor_m": 0.55, "note": "дверь на балкончик с балюстрадой" },
+          "5": { "shape": "rect", "w_m": 1.1, "h_m": 1.75, "sill_above_floor_m": 1.2, "medallion_d_m": 0.4, "medallion_gap_m": 0.55 }
+        },
+        "balcony_doors": {
+          "3": { "shape": "rect", "w_m": 1.5, "h_m": 2.6, "sill_above_floor_m": 0.65, "axes": "2 и 8", "note": "дверь на балкон с балюстрадой" }
+        },
+        "erker": {
+          "3": { "shape": "rect", "w_m": 1.4, "h_m": 2.0, "sill_above_floor_m": 1.1, "side_w_m": 0.2, "side_offset_m": 1.325 },
+          "4": { "shape": "rect", "w_m": 1.4, "h_m": 2.0, "sill_above_floor_m": 1.1, "side_w_m": 0.2, "side_offset_m": 1.325 },
+          "5": { "shape": "rect", "w_m": 1.4, "h_m": 2.0, "sill_above_floor_m": 1.1, "side_w_m": 0.2, "side_offset_m": 1.325 }
+        }
+      },
+      "belts": [
+        { "at": "floor_top", "floor": 2, "z_offset_m": 0.0, "height_m": 0.4, "weight": "strong", "name": "мощная тяга над 2-м этажом" }
+      ],
+      "order": {
+        "type": "коринфский",
+        "floors": "3–5",
+        "half_columns": 4,
+        "half_column_w_m": 0.96,
+        "corner_pilaster_w_m": 0.9,
+        "corner_pilaster_inset_m": 0.05,
+        "base_z_m": 8.3,
+        "top_z_m": 19.6,
+        "height_m": 11.3,
+        "capital_h_m": 1.09,
+        "position": "угловые пилястры и 4 полуколонны в центре (между осями 3|4, 4|5, 5|6, 6|7)"
+      },
+      "attic": null,
+      "gate": { "w_m": 3.0, "h_m": 4.0, "shape": "arch", "position": "ось 1" },
+      "doors": [
+        { "axis": "center", "w_m": 1.7, "z0_m": 0.15, "top_m": 3.9, "shape": "arch", "note": "вход по центральной оси" }
+      ],
+      "erker": {
+        "shape": "трёхгранный",
+        "w_m": 3.0,
+        "front_w_m": 2.3,
+        "from_floor": 3,
+        "z0_m": 8.3,
+        "top_above_last_floor_m": 0.0
+      },
+      "balconies": [
+        { "zone": "axes 2, 8", "floor": 3, "w_m": 2.4, "rail": "балюстрада", "rail_h_m": 1.15 },
+        { "zone": "axes 4, 6", "floor": 4, "w_m": 1.7, "rail": "балюстрада", "rail_h_m": 1.0 }
+      ],
+      "parapet": null,
+      "notes": [
+        "Капители до +19,6, верх карниза +22,4 — у самого предела; кровля до ≈+25,2.",
+        "На чертеже балкончики 4-го этажа по осям 4 и 6 тоже с балясинами."
+      ]
+    }
+  ]
+}
