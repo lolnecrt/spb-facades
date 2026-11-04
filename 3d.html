@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Объём фасада</title>
+<meta name="description" content="Простой трёхмерный объём фасада по параметрам генератора: стена с проёмами, ордер, эркеры, балконы; экспорт в GLB.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Sans+Narrow:wght@400;700&family=PT+Serif:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eef0ee; --sheet:#fdfdfb; --ink:#1c2024; --muted:#59626a; --rule:#d3d8d5;
+  --accent:#1e4f7a; --bad:#b8382c; --tint:#e3eaf0; --field:#ffffff;
+  --display:'PT Sans Narrow','Arial Narrow','Roboto Condensed',sans-serif;
+  --body:'PT Serif',Georgia,'Times New Roman',serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --paper:#14181b; --sheet:#f7f8f6; --ink:#e6e9eb; --muted:#a3adb5; --rule:#2d3439; --accent:#8ab8e0; --bad:#ff7b6b; --tint:#1d2730; --field:#1b2125; color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --paper:#14181b; --sheet:#f7f8f6; --ink:#e6e9eb; --muted:#a3adb5; --rule:#2d3439; --accent:#8ab8e0; --bad:#ff7b6b; --tint:#1d2730; --field:#1b2125; color-scheme:dark; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+a{color:var(--accent)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px}
+header{padding:26px 0 14px;display:grid;gap:10px}
+h1{font-family:var(--display);font-size:clamp(28px,4vw,40px);margin:0;line-height:1.1}
+.eyebrow{font-family:var(--display);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-size:14px;margin:0}
+.note{max-width:90ch;margin:0;padding:10px 14px;border-left:3px solid var(--accent);background:var(--tint);font-size:14.5px}
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;padding:12px 0;border-top:1px solid var(--rule)}
+.bar label{display:grid;gap:3px;font-family:var(--display);font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+select,input{font:15px var(--body);color:var(--ink);background:var(--field);border:1px solid var(--rule);border-radius:3px;padding:6px 8px}
+#style{max-width:100%;min-width:0;width:320px}
+#width{width:110px}
+button,.btn{font:600 15px var(--display);letter-spacing:.03em;padding:7px 14px;border:1px solid var(--rule);background:var(--field);color:var(--ink);border-radius:3px;cursor:pointer;text-decoration:none;display:inline-block}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.5;cursor:not-allowed}
+.stage{position:relative;height:min(70vh,680px);min-height:340px;border:1px solid var(--rule);background:#dfe5e8}
+#view{position:absolute;inset:0}
+#view canvas{display:block;width:100%;height:100%}
+.hint{position:absolute;left:10px;bottom:8px;font:13px var(--display);color:#4d565d;background:rgba(255,255,255,.75);padding:2px 8px;border-radius:3px}
+.status{margin:10px 0 0;font-size:14.5px;color:var(--muted)}
+.error{margin:10px 0 0;padding:10px 14px;border-left:4px solid var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--paper))}
+.error[hidden]{display:none}
+footer{padding:16px 0 30px;color:var(--muted);font-size:14px}
+@media (max-width:520px){ .wrap{padding:0 16px} #style{width:100%} .bar label{width:100%} }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<header class="wrap">
+  <p class="eyebrow">Генератор фасадов · объём</p>
+  <h1>Объём фасада</h1>
+  <p class="note">Тот же фасад, что на <a id="back" href="index.html">чертеже</a>, в простом объёме: стена с проёмами, пояса и карнизы, ордер, эркеры, балконы, кровля. Размеры по фасаду — из генератора. <b>Глубины условные</b> — в альбоме их нет: стена 0,8 м, эркер 1,0 м, балкон 0,9 м, скат кровли назад 1,25 высоты; вынос портика 01 — 2,9 м из альбома. Руст, скульптура, капители и окна на гранях эркеров не строятся.</p>
+</header>
+<main class="wrap">
+  <div class="bar" id="bar">
+    <label>Тип фасада <select id="style"></select></label>
+    <label>Ширина, м <input type="number" id="width" step="0.01" inputmode="decimal"></label>
+    <label>Этажность <select id="floors"></select></label>
+    <button type="button" class="primary" id="glb">Скачать GLB</button>
+    <a class="btn" id="toDrawing" href="index.html">Чертёж</a>
+  </div>
+  <div class="stage"><div id="view"></div><span class="hint">вращать — мышью или пальцем, приблизить — колесом</span></div>
+  <p class="status" id="status">Загрузка…</p>
+  <div class="error" id="error" role="alert" hidden></div>
+</main>
+<footer class="wrap">Размеры — альбом facades.html (реконструкция по фото и контурам OSM с помощью ИИ, не натурный обмер, высоты ±0,5 м); правила — автора проекта. three.js 0.160.0 загружается с cdn.jsdelivr.net.</footer>
+
+<script src="src/generator.js"></script>
+<script type="module">
+const G = window.FacadeGenerator;
+const $ = (id) => document.getElementById(id);
+const fmt = G.fmt;
+const err = (html) => { const e = $('error'); e.hidden = !html; e.innerHTML = html || ''; };
+let THREE, OrbitControls, GLTFExporter;
+let DATA, renderer, scene, camera, controls, facade = null;
+const state = { style: '02', width: null, floors: null, options: {} };
+
+const COLORS = { wall: 0xe8e0cf, stone: 0xb4ab9d, trim: 0xf4f0e6, glass: 0x5b6f82, door: 0x3a332d, roof: 0x77838a, metal: 0x2a2a2a };
+let MATS;
+
+async function boot() {
+  try {
+    THREE = await import('three');
+    ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+    ({ GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'));
+  } catch (e) {
+    $('status').textContent = '';
+    err('<b>three.js не загрузился</b> с cdn.jsdelivr.net (' + String(e.message || e) + '). Нужен доступ в интернет; чертёж работает и без него — <a href="index.html' + location.hash + '">открыть чертёж</a>.');
+    return;
+  }
+  MATS = {};
+  for (const [k, c] of Object.entries(COLORS)) {
+    MATS[k] = new THREE.MeshStandardMaterial({ color: c, roughness: k === 'glass' ? 0.25 : 0.85, metalness: k === 'glass' ? 0.2 : 0, side: k === 'roof' || k === 'glass' || k === 'door' ? THREE.DoubleSide : THREE.FrontSide });
+    MATS[k].name = k;
+  }
+  initScene();
+  try {
+    const r = await fetch('data/styles.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    DATA = await r.json();
+    start();
+  } catch (e) {
+    $('status').textContent = '';
+    err('<b>Не удалось загрузить data/styles.json</b> — страница, видимо, открыта как файл. Запустите <code>python3 -m http.server 8000</code> в папке проекта или выберите файл вручную: <input type="file" id="pick" accept=".json">');
+    $('pick').addEventListener('change', (ev) => {
+      const f = ev.target.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => { try { DATA = JSON.parse(rd.result); err(''); start(); } catch (x) { alert('Это не JSON: ' + x.message); } };
+      rd.readAsText(f, 'utf-8');
+    });
+  }
+}
+
+function initScene() {
+  const el = $('view');
+  renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  el.appendChild(renderer.domElement);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xdfe5e8);
+  camera = new THREE.PerspectiveCamera(35, 1, 0.5, 2000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8c8f88, 1.1));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  sun.position.set(-40, 60, 80);
+  scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0xc9cdc8, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.01;
+  scene.add(ground);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI / 2 - 0.02;
+  const resize = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+  new ResizeObserver(resize).observe(el);
+  resize();
+  renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+}
+
+// ---------- параметры: те же, что у чертежа (#s=…&w=…&n=…&варианты)
+function readHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('s') && DATA.styles.some((s) => s.id === h.get('s'))) state.style = h.get('s');
+  const st = G.getStyle(DATA, state.style);
+  const req = G.albumRequest(st);
+  state.width = h.get('w') ? Number(h.get('w')) : req.width;
+  state.floors = h.get('n') ? Number(h.get('n')) : req.floors;
+  state.options = Object.assign({}, req.options);
+  for (const d of G.styleOptions(st)) if (h.has(d.key)) state.options[d.key] = d.type === 'number' ? Number(h.get(d.key)) : h.get(d.key) === '1';
+}
+function hashString() {
+  const h = new URLSearchParams();
+  h.set('s', state.style); h.set('w', String(state.width)); h.set('n', String(state.floors));
+  for (const [k, v] of Object.entries(state.options)) h.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+  return '#' + h.toString();
+}
+
+function start() {
+  $('style').innerHTML = DATA.styles.map((s) => `<option value="${s.id}">${s.id} · ${s.name} — ${s.house.address}</option>`).join('');
+  $('style').addEventListener('change', () => { const req = G.albumRequest(G.getStyle(DATA, $('style').value)); Object.assign(state, { style: req.style, width: req.width, floors: req.floors, options: req.options }); sync(); });
+  $('width').addEventListener('change', () => { const v = Number($('width').value.replace(',', '.')); if (v > 0) { state.width = v; sync(); } });
+  $('floors').addEventListener('change', () => { state.floors = Number($('floors').value); sync(); });
+  $('glb').addEventListener('click', exportGLB);
+  window.addEventListener('hashchange', () => { readHash(); sync(true); });
+  readHash();
+  sync(true);
+}
+
+function sync(fit) {
+  history.replaceState(null, '', hashString());
+  $('back').href = $('toDrawing').href = 'index.html' + hashString();
+  $('style').value = state.style;
+  const fr = G.floorRange(DATA, state.style, state.options);
+  if (!fr.list.find((x) => x.N === state.floors && x.ok)) state.floors = Math.min(Math.max(state.floors, fr.min), fr.max);
+  $('floors').innerHTML = fr.list.filter((x) => x.ok).map((x) => `<option value="${x.N}">${x.N} эт.</option>`).join('');
+  $('floors').value = state.floors;
+  $('width').value = state.width;
+  build(fit !== false);
+}
+
+function build(fit) {
+  const g = G.generate(DATA, { style: state.style, width: state.width, floors: state.floors, options: state.options });
+  if (!g.ok) { err('<b>Фасад не построен.</b> ' + g.error.replace(/</g, '&lt;')); $('glb').disabled = true; return; }
+  err(''); $('glb').disabled = false;
+  const m = g.model;
+  if (facade) { scene.remove(facade); facade.traverse((o) => o.geometry && o.geometry.dispose()); }
+  facade = toThree(G.solid(m), m);
+  scene.add(facade);
+  $('status').textContent = `${m.style} · ${m.styleName}: ${fmt(m.W)} м, ${m.N} эт., осей ${m.axes.length}; ${m.cornice !== null ? 'карниз ' + fmt(m.cornice) : 'парапет до ' + fmt(m.parapetTop)} м. Элементов в объёме: ${facade.children.length}.`;
+  if (fit) frame(m);
+}
+
+function frame(m) {
+  const H = Math.max(m.wallTop, m.roofTop || 0);
+  const tv = Math.tan((camera.fov * Math.PI) / 360);
+  const d = Math.max((m.W / 2) / (tv * camera.aspect), (H / 2) / tv) * 1.12;
+  controls.target.set(0, H * 0.48, 0);
+  camera.position.set(-d * 0.28, H * 0.6, d);
+  camera.near = 0.5; camera.far = d * 10; camera.updateProjectionMatrix();
+  controls.update();
+}
+
+// ---------- описание объёма из генератора → сетки three.js
+function toThree(sol, m) {
+  const grp = new THREE.Group();
+  grp.name = `facade-${m.style}-${m.W}m-${m.N}fl`;
+  const X = (x) => x - sol.W / 2;
+  const v2 = (p) => new THREE.Vector2(X(p[0]), p[1]);
+  const add = (geo, mat, name) => { const mesh = new THREE.Mesh(geo, MATS[mat]); mesh.name = name || mat; grp.add(mesh); return mesh; };
+  for (const p of sol.parts) {
+    if (p.kind === 'box') {
+      const mesh = add(new THREE.BoxGeometry(p.x1 - p.x0, p.z1 - p.z0, p.y1 - p.y0), p.mat, p.name);
+      mesh.position.set(X((p.x0 + p.x1) / 2), (p.z0 + p.z1) / 2, (p.y0 + p.y1) / 2);
+    } else if (p.kind === 'prism') {
+      const shape = new THREE.Shape(p.pts.map(v2));
+      for (const h of p.holes) shape.holes.push(new THREE.Path(h.map(v2)));
+      const mesh = add(new THREE.ExtrudeGeometry(shape, { depth: p.y1 - p.y0, bevelEnabled: false, curveSegments: 1 }), p.mat, p.name);
+      mesh.position.z = p.y0;
+    } else if (p.kind === 'pane') {
+      const mesh = add(new THREE.ShapeGeometry(new THREE.Shape(p.pts.map(v2))), p.mat, p.mat === 'glass' ? 'стекло' : 'проём');
+      mesh.position.z = p.y;
+    } else if (p.kind === 'cyl') {
+      const mesh = add(new THREE.CylinderGeometry(p.r, p.r * 1.06, p.z1 - p.z0, 24), p.mat, p.name);
+      mesh.position.set(X(p.x), (p.z0 + p.z1) / 2, p.y);
+    } else if (p.kind === 'wedge') {
+      const y0 = p.y0, y1 = p.y0 - p.run;
+      const A = [X(p.base[0]), p.zb, y0], B = [X(p.base[1]), p.zb, y0];
+      const C = [X(p.ridge[1]), p.zt, y1], D = [X(p.ridge[0]), p.zt, y1];
+      const Ee = [X(p.base[0]), p.zb, y1], F = [X(p.base[1]), p.zb, y1];
+      const tris = [A, B, C, A, C, D, A, D, Ee, B, F, C, Ee, D, C, Ee, C, F, A, Ee, F, A, F, B];
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(tris.flat(), 3));
+      geo.computeVertexNormals();
+      add(geo, p.mat, p.name);
+    }
+  }
+  return grp;
+}
+
+function exportGLB() {
+  if (!facade) return;
+  new GLTFExporter().parse(facade, (glb) => {
+    const blob = new Blob([glb], { type: 'model/gltf-binary' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `facade-${state.style}-${String(state.width).replace('.', ',')}m-${state.floors}fl.glb`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, (e) => err('<b>Экспорт не удался:</b> ' + String(e.message || e)), { binary: true });
+}
+
+boot();
+</script>
+</body>
+</html>

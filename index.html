@@ -67,6 +67,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 :root[data-theme="dark"] button.primary{color:#0e1418}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.primary{color:#0e1418}}
 button:disabled{opacity:.5;cursor:not-allowed}
+.btnlink{font:600 15px var(--display);letter-spacing:.03em;padding:8px 14px;border:1px solid var(--rule);background:var(--field);color:var(--ink);border-radius:3px;text-decoration:none}
 .summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0;margin:0 0 14px;border:1px solid var(--rule)}
 .summary div{padding:8px 12px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:-1px -1px 0 0}
 .summary dt{font-family:var(--display);font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
@@ -157,6 +158,7 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
       <div class="btns">
         <button type="button" id="reset">Как в альбоме</button>
         <button type="button" id="download" class="primary">Скачать SVG</button>
+        <a class="btnlink" id="to3d" href="3d.html">Объём (3D)</a>
       </div>
     </form>
 
@@ -191,6 +193,7 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
       <li><a href="docs/implementation.md"><b>Правило → реализация</b><span>и вопросы автору</span></a></li>
       <li><a href="docs/validation.md"><b>Сверка с альбомом</b><span>альбом / генератор / расхождение</span></a></li>
       <li><a href="data/styles.json"><b>Параметры типов</b><span>data/styles.json</span></a></li>
+      <li><a href="3d.html"><b>Объём (3D)</b><span>стена с проёмами, экспорт в GLB</span></a></li>
     </ul>
   </section>
 </main>
@@ -258,14 +261,13 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
     h.set('s', state.style); h.set('w', String(state.width)); h.set('n', String(state.floors));
     for (const [k, v] of Object.entries(state.options)) h.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
     history.replaceState(null, '', '#' + h.toString());
+    $('to3d').href = '3d.html#' + h.toString();
   }
 
   // ---------- интерфейс
   function start() {
     const sel = $('style');
     sel.innerHTML = DATA.styles.map((s) => `<option value="${s.id}">${s.id} · ${s.name} — ${s.house.address}</option>`).join('');
-    readHash();
-    sel.value = state.style;
     sel.addEventListener('change', () => { setStyle(sel.value); });
     $('width').addEventListener('input', () => { const v = Number($('width').value.replace(',', '.')); if (v > 0) { state.width = v; $('widthRange').value = v; update(); } });
     $('widthRange').addEventListener('input', () => { state.width = Number($('widthRange').value); $('width').value = state.width; update(); });
@@ -276,13 +278,21 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
       document.querySelectorAll('.zbtn').forEach((x) => x.classList.toggle('is-on', x === b));
       $('drawing').classList.toggle('zoomed', b.dataset.zoom === 'big');
     }));
+    window.addEventListener('hashchange', applyHash);
+    applyHash();
+    buildValidation();
+  }
+
+  // ссылка с параметрами (#s=…&w=…&n=…) — при открытии и при ручной правке адреса
+  function applyHash() {
+    readHash();
+    $('style').value = state.style;
     buildOptions();
     refreshFloors();
     refreshWidth();
     $('width').value = state.width;
     $('widthRange').value = state.width;
     update();
-    buildValidation();
   }
 
   function setStyle(id) {
@@ -316,13 +326,13 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
     const fr = G.floorRange(DATA, state.style, state.options);
     const sel = $('floors');
     sel.innerHTML = fr.list.map((x) => {
-      const why = x.ok ? `верх ${fmt(x.wallTop)} м` : x.wallTop ? `нельзя: ${fmt(x.wallTop)} м > 23,5` : 'нельзя по правилам стиля';
+      const why = x.ok ? `карниз/парапет ${fmt(x.limitTop)} м` : x.limitTop ? `нельзя: ${fmt(x.limitTop)} м > 23,5` : 'нельзя по правилам стиля';
       return `<option value="${x.N}" ${x.ok ? '' : 'disabled'}>${x.N} эт. — ${why}</option>`;
     }).join('');
     if (!fr.list.find((x) => x.N === state.floors && x.ok)) state.floors = Math.min(Math.max(state.floors, fr.min), fr.max);
     sel.value = state.floors;
-    const bad = fr.list.filter((x) => !x.ok && x.N > fr.max && x.wallTop);
-    $('floorsHint').textContent = `Можно ${fr.min}–${fr.max} эт.` + (bad.length ? ` При ${bad[0].N} эт. карниз был бы на ${fmt(bad[0].wallTop)} м — выше предела.` : '');
+    const bad = fr.list.filter((x) => !x.ok && x.N > fr.max && x.limitTop);
+    $('floorsHint').textContent = `Можно ${fr.min}–${fr.max} эт.` + (bad.length ? ` При ${bad[0].N} эт. карниз был бы на ${fmt(bad[0].limitTop)} м — выше предела.` : '');
   }
 
   function refreshWidth() {
@@ -356,12 +366,13 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
     const isCornice = m.cornice !== null;
     const items = [
       [isCornice ? 'Отметка карниза' : 'Верх парапета', fmt(isCornice ? m.cornice : m.parapetTop) + ' м'],
-      ['Верх стены', fmt(m.wallTop) + ' м'],
-      ['Запас до 23,5 м', fmt(m.limit - m.wallTop) + ' м', 'limit'],
+      ['Высший карниз/парапет', fmt(m.limitTop) + ' м'],
+      ['Запас до 23,5 м', fmt(m.limit - m.limitTop) + ' м', 'limit'],
       ['Осей', String(m.axes.length)],
       ['Ширина', fmt(m.W) + ' м'],
       ['Этажей', String(m.N)]
     ];
+    if (m.atticTop) items.push([m.style === '05' ? 'Аттиковый этаж' : 'Аттик', fmt(m.atticTop) + ' м']);
     if (m.roofTop) items.push([m.style === '01' ? 'Скульптура' : 'Кровля', fmt(m.roofTop) + ' м']);
     $('summary').innerHTML = items.map(([k, v, c]) => `<div><dt>${k}</dt><dd${c ? ` class="${c}"` : ''}>${v}</dd></div>`).join('');
     $('checks').innerHTML = m.checks.map((c) => {
@@ -404,7 +415,7 @@ footer{padding:20px 0 40px;color:var(--muted);font-size:14px;border-top:1px soli
       const parts = [];
       if (r.axisShift > 1e-9) parts.push(`положения осей отличаются от осей чертежа до ${fmt(r.axisShift, 3)} м`);
       if (r.levelShift > 1e-9) parts.push(`отметки этажей — до ${fmt(r.levelShift, 2)} м`);
-      return `${r.id}: ${parts.join('; ')}.` + (r.notes.length ? ' ' + r.notes.filter((n) => /^G2/.test(n)).join(' ') : '');
+      return `${r.id}: ${parts.join('; ')}.` + (r.notes.length ? ' ' + r.notes.filter((n) => /^Высоты этажей/.test(n)).join(' ') : '');
     });
     $('vfoot').textContent = (notes.length ? 'Ненулевые дополнительные расхождения: ' + notes.join(' ') + ' ' : '') + 'Сравнение точное — без допуска ±0,5 м альбома.';
   }
