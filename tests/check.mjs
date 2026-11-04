@@ -87,11 +87,20 @@ function inspect(req, m, label) {
     if (ax.length < 3 || ax.length > 6) errs.push(`у модерна ${ax.length} осей, а можно 3–6`);
     const er = ax.find((a) => a.part === 'erker');
     if (!er || Math.abs(er.x - m.W / 2) < 0.1) errs.push('эркер модерна стоит по центру');
+    // под каждой добавленной осью — витрины на 1-м и 2-м этажах
+    for (const a of ax.filter((q) => q.part === 'added')) {
+      const v = m.elements.filter((e) => e.type === 'opening' && e.kind === 'vitrine' && Math.abs(e.x - a.x) < EPS).map((e) => e.floor).sort();
+      if (v.join() !== '1,2') errs.push(`под добавленной осью ${a.n} нет витрин на 1–2-м этажах (${v.join() || 'ничего'})`);
+    }
   }
   if (m.style === '01') {
     const p = m.parts.find((q) => q.kind === 'portico');
     const cols = m.elements.filter((e) => e.type === 'column' && e.kind === 'column' && e.x > p.x0 && e.x < p.x1).length;
     if (![4, 6, 8].includes(cols)) errs.push(`в портике ${cols} колонн, а можно 4, 6 или 8`);
+    const wl = ax.filter((a) => a.part === 'wing' && a.x < m.W / 2).length;
+    const wr = ax.filter((a) => a.part === 'wing' && a.x > m.W / 2).length;
+    if (wl !== wr || wl < 3 || wl > 6) errs.push(`в крыльях ${wl} и ${wr} осей, а нужно поровну, от 3 до 6`);
+    if (m.parts.map((q) => q.kind).join() !== 'risalit,wing,portico,wing,risalit') errs.push('нет пятичастной схемы');
   }
   if (m.style === '02') {
     const own = st.generator.floor_heights_m;

@@ -164,43 +164,53 @@
   // -------------------------------------------- горизонталь: раскладка осей
   function axis(x, part, kind) { return { x, part, kind: kind || part }; }
 
-  // R01.1: пятичастная композиция, по 6 осей в крыле. R01.2 + решение автора
-  // (вопрос 6): портик не убирается, меняется число колонн (4 / 6 / 8) и
-  // пролётов (3 / 5 / 7); выбирается вариант с шагом, ближайшим к альбомным 3,15 м.
+  // R01.1: пятичастная композиция; в крыле от 3 до 6 осей (решение автора,
+  // 4 ноября 2026: чтобы фасад помещался на участки уже альбомных 95 м).
+  // R01.2 + решение автора: портик не убирается, у него 4 / 6 / 8 колонн.
+  // Перебираются все сочетания «оси крыла × колонны портика»; берётся то, где
+  // шаг портика ближе всего к альбомным 3,15 м, при равенстве — больше осей в
+  // крыле (ближе к альбому). Шаг крыла 3,5 м и ризалиты — как в альбоме.
   function plan01(st, W) {
     const [ris, wing, por] = st.plan.parts;
-    const fixed = 2 * ris.width_m + 2 * wing.width_m;
-    const P = W - fixed;
+    const g = st.generator;
     const c2e = por.column_to_edge_m;
     const sMin = st.windows.portico['1'].w_m; // T2: арки аркады не пересекаются
-    const cols = st.generator.portico_columns;
+    const cols = g.portico_columns;
+    const wingW = (w) => 2 * wing.margin_m + (w - 1) * wing.axis_step_m;
     let best = null;
-    for (const c of cols) {
-      const n = c - 1;
-      const s = (P - 2 * c2e) / n;
-      if (s < sMin - EPS) continue;
-      const d = Math.abs(s - por.axis_step_m);
-      if (!best || d < best.d - EPS) best = { n, s, d };
+    for (let w = g.wing_axes_max; w >= g.wing_axes_min; w--) {
+      const P = W - 2 * ris.width_m - 2 * wingW(w);
+      for (const c of cols) {
+        const n = c - 1;
+        const s = (P - 2 * c2e) / n;
+        if (s < sMin - EPS) continue;
+        const d = Math.abs(s - por.axis_step_m);
+        if (!best || d < best.d - EPS) best = { n, s, d, w, P };
+      }
     }
-    if (!best) return { error: `Ширина мала для пятичастной композиции: портику с ${Math.min(...cols)} колоннами нужно, чтобы фасад был не меньше ${fmt(fixed + 2 * c2e + (Math.min(...cols) - 1) * sMin, 2)} м.` };
+    if (!best) {
+      const minW = 2 * ris.width_m + 2 * wingW(g.wing_axes_min) + 2 * c2e + (Math.min(...cols) - 1) * sMin;
+      return { error: `Ширина мала для пятичастной композиции: при ${g.wing_axes_min} осях в крыле и портике с ${Math.min(...cols)} колоннами фасад не уже ${fmt(minW, 2)} м.` };
+    }
     const axes = [];
     const parts = [];
     let x = 0;
     const pushPart = (kind, name, width) => { parts.push({ kind, name, x0: r3(x), x1: r3(x + width) }); x += width; };
+    const WW = wingW(best.w);
     // левый ризалит
     for (let i = 0; i < ris.axes; i++) axes.push(axis(x + ris.margin_outer_m + i * ris.axis_step_m, 'risalit'));
     pushPart('risalit', ris.name, ris.width_m);
-    for (let i = 0; i < wing.axes; i++) axes.push(axis(x + wing.margin_m + i * wing.axis_step_m, 'wing'));
-    pushPart('wing', wing.name, wing.width_m);
+    for (let i = 0; i < best.w; i++) axes.push(axis(x + wing.margin_m + i * wing.axis_step_m, 'wing'));
+    pushPart('wing', wing.name, WW);
     const pm = c2e + best.s / 2;
     for (let i = 0; i < best.n; i++) axes.push(axis(x + pm + i * best.s, 'portico'));
-    const portico = { x0: r3(x), x1: r3(x + P), spans: best.n, step: r3(best.s), columns: best.n + 1, c2e };
-    pushPart('portico', por.name, P);
-    for (let i = 0; i < wing.axes; i++) axes.push(axis(x + wing.margin_m + i * wing.axis_step_m, 'wing'));
-    pushPart('wing', wing.name, wing.width_m);
+    const portico = { x0: r3(x), x1: r3(x + best.P), spans: best.n, step: r3(best.s), columns: best.n + 1, c2e };
+    pushPart('portico', por.name, best.P);
+    for (let i = 0; i < best.w; i++) axes.push(axis(x + wing.margin_m + i * wing.axis_step_m, 'wing'));
+    pushPart('wing', wing.name, WW);
     for (let i = 0; i < ris.axes; i++) axes.push(axis(x + ris.margin_inner_m + i * ris.axis_step_m, 'risalit'));
     pushPart('risalit', ris.name, ris.width_m);
-    return { axes, parts, portico, stepInfo: `крылья ${fmt(wing.axis_step_m)} · ризалиты ${fmt(ris.axis_step_m)} · портик ${fmt(best.s, 3)} м (${best.n} пролётов)` };
+    return { axes, parts, portico, wingAxes: best.w, stepInfo: `осей в крыле: ${best.w}, шаг ${fmt(wing.axis_step_m)} · ризалиты ${fmt(ris.axis_step_m)} · портик ${fmt(best.s, 3)} м, колонн: ${best.n + 1}` };
   }
 
   // Рядовой фасад с одинаковым шагом (02, 06): число осей подбирается так,
@@ -476,9 +486,12 @@
     const at = st.attic;
     const cx = (por.x0 + por.x1) / 2;
     const atTop = cornice + at.height_m;
-    add({ type: 'attic', parts: [{ x0: r3(cx - at.half_width_m), x1: r3(cx + at.half_width_m), z0: cornice, z1: r3(atTop - 0.18) }, { x0: r3(cx - at.cap_half_width_m), x1: r3(cx + at.cap_half_width_m), z0: r3(atTop - 0.18), z1: r3(atTop) }], name: 'аттик над портиком' });
+    // технически: аттик не шире колоннады портика — при узком портике ширины
+    // аттика и скульптуры уменьшаются пропорционально (высоты как в альбоме)
+    const f = Math.min(1, ((por.x1 - por.x0) / 2 - por.c2e) / at.half_width_m);
+    add({ type: 'attic', parts: [{ x0: r3(cx - f * at.half_width_m), x1: r3(cx + f * at.half_width_m), z0: cornice, z1: r3(atTop - 0.18) }, { x0: r3(cx - f * at.cap_half_width_m), x1: r3(cx + f * at.cap_half_width_m), z0: r3(atTop - 0.18), z1: r3(atTop) }], name: 'аттик над портиком' });
     const sculTop = cornice + (at.sculpture_top_m - st.album.cornice_m);
-    add({ type: 'sculpture', x0: r3(cx - at.sculpture_half_width_m), x1: r3(cx + at.sculpture_half_width_m), z0: r3(atTop), z1: r3(sculTop), name: 'скульптурная группа' });
+    add({ type: 'sculpture', x0: r3(cx - f * at.sculpture_half_width_m), x1: r3(cx + f * at.sculpture_half_width_m), z0: r3(atTop), z1: r3(sculTop), name: 'скульптурная группа' });
     return ctx.E;
   }
 
@@ -594,8 +607,8 @@
     const gTop = st.section.granite_top_m;
     add({ type: 'rust', pattern: 'rough', x0: 0, x1: W, z0: 0, z1: gTop, course: st.section.floors[0].rust_course_m, floor: '1–2' });
     belts(ctx, st.belts, 0, W);
-    // 1-й этаж и люнет идут вместе со своими осями; под добавленными средними
-    // осями на 1–2-м этажах проёмов нет (у средней оси альбома там вход, он один)
+    // 1-й этаж и люнет альбома идут вместе со своими осями (вход один — у
+    // средней оси альбома); под добавленными осями — витрины, см. ниже
     for (const g of plan.ground) {
       if (g.kind === 'lunette') {
         add({ type: 'opening', kind: 'window', x: g.x, w: g.w_m, z0: g.z0_m, h: g.h_m, shape: 'lunette', floor: 2 });
@@ -619,6 +632,14 @@
           continue;
         }
         opening(ctx, spec, f, a.x, { axis: i + 1, mullions: spec.mullions || 1 });
+      }
+      // решение автора: под добавленными осями на 1–2-м этажах — витрины в
+      // гранитном цоколе, а не глухая стена
+      if (a.src.added) {
+        for (const f of sec.floors.filter((q) => q.role === 1 || q.role === 2)) {
+          const v = st.generator.added_axis_base[String(f.role)];
+          opening(ctx, v, f, a.x, { axis: i + 1, kind: 'vitrine', frame: 'none', mullions: 2 });
+        }
       }
     }
     if (erkerOn) {
@@ -942,10 +963,12 @@
     switch (m.style) {
       case '01': {
         const kinds = m.parts.map((p) => p.kind).join(',');
-        const wings = m.axes.filter((a) => a.part === 'wing').length;
+        const wa = m.axes.filter((a) => a.part === 'wing');
+        const half = m.W / 2;
+        const wl = wa.filter((a) => a.x < half).length, wr = wa.length - wl;
         const f1 = m.section.floors[0];
-        R('R01.1', kinds === 'risalit,wing,portico,wing,risalit' && wings === 12 && fin(f1) === 'rust' && f1.h >= Math.max(...hs) - EPS && cols.length > 0,
-          `части: ризалит–крыло–портик–крыло–ризалит; в крыльях по ${wings / 2} осей; 1-й этаж рустован, ${fmt(f1.h)} м — самый высокий; ордер на нём`);
+        R('R01.1', kinds === 'risalit,wing,portico,wing,risalit' && wl === wr && wl >= st.generator.wing_axes_min && wl <= st.generator.wing_axes_max && fin(f1) === 'rust' && f1.h >= Math.max(...hs) - EPS && cols.length > 0,
+          `части: ризалит–крыло–портик–крыло–ризалит; в крыльях по ${wl} оси (можно ${st.generator.wing_axes_min}–${st.generator.wing_axes_max}); 1-й этаж рустован, ${fmt(f1.h)} м — самый высокий; ордер на нём`);
         const pc = m.plan.portico.columns;
         R('R01.2', st.generator.portico_columns.includes(pc), `портик: ${pc} колонн, ${m.plan.portico.spans} пролётов, шаг ${fmt(m.plan.portico.step)} м`);
         break;
@@ -1022,7 +1045,7 @@
     T1: 'Оси влезают в ширину',
     T2: 'Проёмы не пересекаются',
     T3: 'Проёмы в пределах фасада',
-    'R01.1': 'Пятичастная композиция, по 6 осей в крыле, ордер на рустованном 1-м этаже',
+    'R01.1': 'Пятичастная композиция, 3–6 осей в крыле, ордер на рустованном 1-м этаже',
     'R01.2': 'Портик не убирается, меняется число колонн (4 / 6 / 8)',
     'R02.1': 'Руст только на 1-м этаже, сильный пояс между 2-м и 3-м',
     'R02.3': 'Не берём высокий нарядный 3-й этаж',
@@ -1219,6 +1242,7 @@
         if (!e.side && e.shape !== 'lunette') rect(x0 - 0.2, z0 - 0.1, x1 + 0.2, z0, 't', '#ffffff');
         if (e.frame === 'sill-brackets') { rect(x0 + 0.05, z0 - 0.3, x0 + 0.15, z0 - 0.1, 'h', '#ffffff'); rect(x1 - 0.15, z0 - 0.3, x1 - 0.05, z0 - 0.1, 'h', '#ffffff'); }
       }
+      if (e.kind === 'vitrine' && e.mullions > 1) for (let k = 1; k < e.mullions; k++) line(x0 + (e.w * k) / e.mullions, z0, x0 + (e.w * k) / e.mullions, z1, 'h');
     }
     // 7. сандрики и фронтоны
     for (const e of by('sandrik')) {
