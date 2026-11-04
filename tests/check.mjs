@@ -1,7 +1,7 @@
 // Проверка генератора без зависимостей: node tests/check.mjs [--seed N] [--count N]
 //
 // 1. 200 случайных фасадов в допустимых диапазонах: каждый строится, ничего,
-//    кроме кровли и скульптуры, не выше 23,5 м; оси внутри ширины; проёмы
+//    кроме аттика, кровли и скульптуры, не выше 23,5 м; оси внутри ширины; проёмы
 //    (окна, двери, ворота) не пересекаются и не выходят за фасад.
 //    Геометрия проверяется здесь заново, а не через проверки самого генератора.
 // 2. Запросы за пределами диапазонов: генератор отказывает, а не строит
@@ -54,10 +54,15 @@ function topOf(e) {
 
 function inspect(req, m, label) {
   const errs = [];
-  // предел: всё, кроме кровли и скульптуры (общее правило 3)
-  const walls = m.elements.filter((e) => e.type !== 'roof' && e.type !== 'sculpture');
+  // предел (общее правило 3): всё, кроме аттика, аттикового этажа, кровли,
+  // бровки эркера и скульптуры, — не выше 23,5 м
+  const EXEMPT = new Set(['roof', 'sculpture', 'attic', 'attic-floor', 'brow']);
+  const walls = m.elements.filter((e) => !EXEMPT.has(e.type));
   const top = Math.max(...walls.map(topOf));
-  if (top > LIMIT + EPS) errs.push(`элемент на ${top.toFixed(3)} м выше ${LIMIT}`);
+  if (top > LIMIT + EPS) errs.push(`элемент ${walls.find((e) => topOf(e) === top).type} на ${top.toFixed(3)} м выше ${LIMIT}`);
+  // первый этаж строго выше остальных (G2)
+  const hs = m.section.floors.map((f) => f.h);
+  if (!(hs[0] > Math.max(...hs.slice(1)) + EPS)) errs.push(`1-й этаж ${hs[0]} м не выше остальных`);
   if (m.cornice !== null && m.cornice > LIMIT + EPS) errs.push(`карниз ${m.cornice}`);
   if (m.parapetTop !== null && m.parapetTop > LIMIT + EPS) errs.push(`парапет ${m.parapetTop}`);
   // оси влезают в ширину
@@ -76,6 +81,25 @@ function inspect(req, m, label) {
     const a = ops[i], b = ops[j];
     if (a.x0 < b.x1 - EPS && b.x0 < a.x1 - EPS && a.z0 < b.z1 - EPS && b.z0 < a.z1 - EPS) errs.push(`проёмы пересекаются: ось ${a.e.axis}/${b.e.axis}, этаж ${a.e.floor}/${b.e.floor}`);
   }
+  // решения автора (ответы на вопросы)
+  const st = DATA.styles.find((q) => q.id === m.style);
+  if (m.style === '04') {
+    if (ax.length < 3 || ax.length > 6) errs.push(`у модерна ${ax.length} осей, а можно 3–6`);
+    const er = ax.find((a) => a.part === 'erker');
+    if (!er || Math.abs(er.x - m.W / 2) < 0.1) errs.push('эркер модерна стоит по центру');
+  }
+  if (m.style === '01') {
+    const p = m.parts.find((q) => q.kind === 'portico');
+    const cols = m.elements.filter((e) => e.type === 'column' && e.kind === 'column' && e.x > p.x0 && e.x < p.x1).length;
+    if (![4, 6, 8].includes(cols)) errs.push(`в портике ${cols} колонн, а можно 4, 6 или 8`);
+  }
+  if (m.style === '02') {
+    const own = st.generator.floor_heights_m;
+    m.section.floors.forEach((f) => { if (Math.abs(f.h - own[f.role - 1]) > EPS) errs.push(`02: этаж ${f.n} высотой ${f.h} вместо ${own[f.role - 1]}`); });
+  }
+  // первый и верхний этажи — как в альбоме, меняются только типовые средние
+  const roles = m.section.floors.filter((f) => f.role !== 'attic').map((f) => f.role);
+  if (roles[0] !== 1 || roles[roles.length - 1] !== st.section.floors.length) errs.push(`первый или верхний этаж подменён: ${roles.join(',')}`);
   // правила автора, которые генератор проверяет сам, тоже должны выполняться
   for (const c of m.checks) if (!c.ok) errs.push(`правило ${c.id}: ${c.detail}`);
   // все элементы — из одного стиля (запрет смешения)
@@ -128,7 +152,7 @@ for (let k = 0; k < 100; k++) {
 for (const st of DATA.styles) {
   const over = ranges[st.id].max + 1;
   const g = G.generate(DATA, { style: st.id, width: st.album.width_m, floors: over });
-  if (g.ok) fail(`${st.id}: при ${over} эт. фасад построен (верх ${g.model.wallTop})`);
+  if (g.ok) fail(`${st.id}: при ${over} эт. фасад построен (карниз/парапет ${g.model.limitTop})`);
   else if (!/23,5|допускает|этажность/.test(g.error)) fail(`${st.id}: непонятный отказ «${g.error}»`);
 }
 console.log(`   100 случайных: отказ ${refused}, построено ${builtOk} (все построенные проверены как в п. 1); этажность сверх максимума — отказ у всех 6 стилей`);

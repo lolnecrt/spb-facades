@@ -32,16 +32,21 @@
     return st;
   }
 
-  // ------------------------------------------------- технические допущения
-  // Какой этаж альбома убирается или повторяется при другой этажности.
-  // Это не правило автора, а способ подобрать высоты (см. docs/implementation.md, T5).
+  // ------------------------------------------------------------- этажность
+  // Решение автора (вопрос 13): при другой этажности повторяются или убираются
+  // типовые средние этажи, первый и верхний не трогаются. Какие этажи типовые —
+  // техническое уточнение: средние этажи, не входящие в обязательную базу
+  // (у 04 2-й этаж — часть гранитного цоколя, у 06 — рустованного).
+  // Убирается и повторяется типовой этаж, ближайший к верхнему.
+  // nMin — из обязательных элементов (вопрос 14); у 05 этажность фиксирована:
+  // 2 этажа гранитной базы + 3 этажа ордера (+ аттиковый).
   const FLOOR_PLAN = {
-    '01': { nMin: 2, drop: [3], repeat: 3 },
-    '02': { nMin: 3, drop: [3], repeat: 3 },
-    '03': { nMin: 3, drop: [2], repeat: 2 },
-    '04': { nMin: 3, drop: [4, 5, 3], repeat: 4 },
-    '05': { nMin: 5, nMax: 6 },
-    '06': { nMin: 3, drop: [4, 3], repeat: 4 }
+    '01': { nMin: 2, typical: [2] },
+    '02': { nMin: 3, typical: [2, 3] },
+    '03': { nMin: 3, typical: [2, 3] },
+    '04': { nMin: 3, typical: [3, 4, 5] },
+    '05': { nMin: 5, nMax: 6, typical: [] },
+    '06': { nMin: 3, typical: [3, 4] }
   };
 
   // Варианты, которые правила разрешают менять («Можно менять»), и только те,
@@ -77,35 +82,15 @@
     return o;
   }
 
-  // -------------------------------------------------------------- этажи (G2)
-  // G2: «Первый этаж — самый высокий». Если в альбоме это не так (только 02),
-  // высоты приводятся к правилу с сохранением суммы (а значит, и отметки
-  // карниза): этажи выше первого срезаются до общего уровня t, излишек
-  // отдаётся первому этажу.
-  function normalizeFirstFloor(hs) {
-    const h1 = hs[0];
-    const others = hs.slice(1);
-    if (others.every((h) => h <= h1 + EPS)) return { hs: hs.slice(), changed: false };
-    const sorted = others.slice().sort((a, b) => b - a);
-    let t = h1;
-    let acc = h1;
-    for (let k = 1; k <= sorted.length; k++) {
-      acc += sorted[k - 1];
-      t = acc / (k + 1);
-      const next = k < sorted.length ? sorted[k] : -Infinity;
-      if (t >= next - EPS) break;
-    }
-    t = r3(t);
-    const out = [t].concat(others.map((h) => (h > t ? t : h)));
-    // поправка округления, чтобы сумма совпала точно
-    const diff = r3(hs.reduce((a, b) => a + b, 0) - out.reduce((a, b) => a + b, 0));
-    out[0] = r3(out[0] + diff);
-    return { hs: out, changed: true, from: hs.slice() };
-  }
-
-  function albumFloorHeights(st) {
-    const raw = st.section.floors.map((f) => f.height_m);
-    return normalizeFirstFloor(raw);
+  // ---------------------------------------------------------- высоты этажей
+  // G2: «Первый этаж — самый высокий» (строго выше остальных — ответ автора на
+  // вопрос 1). Высоты — из альбома; где альбом правилу не отвечает (только 02),
+  // высоты задал автор: блок generator.floor_heights_m в data/styles.json.
+  function floorHeights(st) {
+    const album = st.section.floors.map((f) => f.height_m);
+    const own = st.generator && st.generator.floor_heights_m;
+    if (own) return { hs: own.slice(), source: 'author', album };
+    return { hs: album, source: 'album', album };
   }
 
   function floorRoles(st, N) {
@@ -118,16 +103,15 @@
     }
     const roles = [];
     for (let i = 1; i <= M; i++) roles.push(i);
-    const drop = plan.drop.slice();
+    const typ = plan.typical;
     while (roles.length > N) {
-      const r = drop.shift();
+      const r = typ.slice().reverse().find((t) => roles.includes(t));
       if (r === undefined) return null;
-      const i = roles.indexOf(r);
-      if (i >= 0) roles.splice(i, 1);
+      roles.splice(roles.lastIndexOf(r), 1);
     }
     while (roles.length < N) {
-      const i = roles.lastIndexOf(plan.repeat);
-      roles.splice(i + 1, 0, plan.repeat);
+      const r = typ[typ.length - 1];
+      roles.splice(roles.lastIndexOf(r) + 1, 0, r);
     }
     return roles;
   }
@@ -139,7 +123,7 @@
     if (plan.nMax && N > plan.nMax) return { error: `Для стиля ${st.id} этажность ${plan.nMin}–${plan.nMax}: двухэтажная база + ордер на три этажа (+ аттиковый этаж).` };
     const roles = floorRoles(st, N);
     if (!roles) return { error: 'Нельзя подобрать этажи.' };
-    const norm = albumFloorHeights(st);
+    const fh = floorHeights(st);
     const sec = st.section;
     let z = sec.plinth_m || 0;
     const floors = [];
@@ -151,7 +135,7 @@
         return;
       }
       src = sec.floors[role - 1];
-      h = norm.hs[role - 1];
+      h = fh.hs[role - 1];
       finish = src.finish;
       floors.push({ n: i + 1, role, z0: r3(z), h, z1: r3(z + h), finish });
       z += h;
@@ -174,28 +158,31 @@
       attic = { n: N, role: 'attic', z0: r3(z), h: af.height_m, z1: r3(z + af.height_m), finish: af.finish };
       floors.push(attic);
     }
-    return { roles, floors, zones, crown, cornice, lastTop, plinth: sec.plinth_m || 0, normalized: norm.changed ? norm : null };
+    return { roles, floors, zones, crown, cornice, lastTop, plinth: sec.plinth_m || 0, heights: fh };
   }
 
   // -------------------------------------------- горизонталь: раскладка осей
   function axis(x, part, kind) { return { x, part, kind: kind || part }; }
 
-  // R01.1: пятичастная композиция, по 6 осей в крыле. R01.2: портик меняется —
-  // число пролётов (нечётное) и шаг портика подбираются под ширину.
+  // R01.1: пятичастная композиция, по 6 осей в крыле. R01.2 + решение автора
+  // (вопрос 6): портик не убирается, меняется число колонн (4 / 6 / 8) и
+  // пролётов (3 / 5 / 7); выбирается вариант с шагом, ближайшим к альбомным 3,15 м.
   function plan01(st, W) {
     const [ris, wing, por] = st.plan.parts;
     const fixed = 2 * ris.width_m + 2 * wing.width_m;
     const P = W - fixed;
     const c2e = por.column_to_edge_m;
     const sMin = st.windows.portico['1'].w_m; // T2: арки аркады не пересекаются
+    const cols = st.generator.portico_columns;
     let best = null;
-    for (let n = 1; n <= 99; n += 2) {
+    for (const c of cols) {
+      const n = c - 1;
       const s = (P - 2 * c2e) / n;
-      if (s < sMin - EPS) break;
+      if (s < sMin - EPS) continue;
       const d = Math.abs(s - por.axis_step_m);
       if (!best || d < best.d - EPS) best = { n, s, d };
     }
-    if (!best) return { error: `Ширина мала для пятичастной композиции: нужно не меньше ${fmt(fixed + 2 * c2e + sMin, 2)} м.` };
+    if (!best) return { error: `Ширина мала для пятичастной композиции: портику с ${Math.min(...cols)} колоннами нужно, чтобы фасад был не меньше ${fmt(fixed + 2 * c2e + (Math.min(...cols) - 1) * sMin, 2)} м.` };
     const axes = [];
     const parts = [];
     let x = 0;
@@ -278,13 +265,81 @@
     return { axes, parts, center: { x0: r3(wl), x1: r3(wl + c.width_m), cx: r3(cx) }, nl, nr, stepInfo: `рядовые ${fmt(side.axis_step_m)} м, ризалит ${fmt(c.width_m)} м` };
   }
 
-  // 04: оси разной ширины (R04.1). Число и порядок осей — из альбома, при
-  // другой ширине расстояния меняются пропорционально (T5), ширины окон — нет.
-  function plan04(st, W) {
+  // 04: оси разной ширины (R04.1). Решение автора (вопрос 10): фасад растёт
+  // осями средней ширины (окно 1,6 м) с той стороны, где эркер дальше от края,
+  // чтобы эркер оставался не по центру; осей 3–6. Технические уточнения:
+  // добавленные оси ставятся у этого края с шагом 3,95 м (расстояние от эркера
+  // до средней оси альбома); для 3 осей убирается средняя ось с ближней к
+  // эркеру стороны вместе с её входом; затем все расстояния масштабируются
+  // под заданную ширину (k), ширины окон не меняются.
+  function plan04(st, W, n) {
     const Wa = st.album.width_m;
-    const k = W / Wa;
-    const axes = st.plan.axes.map((a) => ({ x: r3(a.x_m * k), part: a.erker ? 'erker' : 'axis' + a.axis, kind: a.kind, src: a }));
-    return { axes, parts: [{ kind: 'all', name: 'фасад', x0: 0, x1: W }], k, stepInfo: `оси разной ширины; расстояния ×${fmt(k, 3)} к альбому` };
+    const gen = st.generator;
+    const er = st.plan.axes.find((a) => a.erker);
+    const hw = st.erker.w_m / 2;
+    const farLeft = er.x_m > Wa - er.x_m;
+    const medAlbum = st.plan.axes.find((a) => a.kind === gen.add_axis_kind);
+    const p = gen.add_axis_pitch_m;
+    let axes = st.plan.axes.map((a) => ({ x: a.x_m, src: a }));
+    const owner = (x) => st.plan.axes.reduce((b, a) => (Math.abs(a.x_m - x) < Math.abs(b.x_m - x) ? a : b));
+    let ground = st.ground_floor.map((g) => ({ g, x: g.x_m, owner: owner(g.x_m) }));
+    let Wb = Wa, shift = 0, added = 0, removed = 0;
+    if (n > axes.length) {
+      added = n - axes.length;
+      const addSrc = { axis: 'add', kind: gen.add_axis_kind, window_w_m: gen.add_axis_window_w_m, windowsKey: 'axis' + medAlbum.axis, added: true };
+      const extra = [];
+      if (farLeft) {
+        shift = added * p;
+        for (let i = 0; i < added; i++) extra.push({ x: axes[0].x + i * p, src: addSrc });
+        axes = extra.concat(axes.map((a) => ({ x: a.x + shift, src: a.src })));
+        ground = ground.map((q) => Object.assign({}, q, { x: q.x + shift }));
+      } else {
+        const last = axes[axes.length - 1].x;
+        for (let i = 0; i < added; i++) extra.push({ x: last + (i + 1) * p, src: addSrc });
+        axes = axes.concat(extra);
+      }
+      Wb = Wa + added * p;
+    } else if (n < axes.length) {
+      removed = axes.length - n;
+      const near = farLeft ? axes.slice().reverse() : axes.slice();
+      for (let r = 0; r < removed; r++) {
+        const outer = near[r];
+        if (outer.src.kind !== gen.add_axis_kind) return { error: 'Меньше осей нельзя: убрать можно только среднюю ось у края.' };
+        const inner = near[r + 1];
+        const d = Math.abs(outer.x - inner.x);
+        axes = axes.filter((a) => a !== outer);
+        ground = ground.filter((q) => q.owner !== outer.src);
+        if (!farLeft) { axes = axes.map((a) => ({ x: a.x - d, src: a.src })); ground = ground.map((q) => Object.assign({}, q, { x: q.x - d })); }
+        Wb -= d;
+      }
+    }
+    const k = W / Wb;
+    const exB = axes.find((a) => a.src.erker).x;
+    // профиль парапета: левая часть до эркера, эркер и правая часть — по своим якорям
+    const A = [0, er.x_m - hw, er.x_m + hw, Wa];
+    const B = [0, exB - hw, exB + hw, Wb];
+    const mapX = (x) => {
+      for (let i = 0; i < 3; i++) if (x <= A[i + 1] + EPS || i === 2) return (B[i] + (x - A[i]) * (B[i + 1] - B[i]) / (A[i + 1] - A[i])) * k;
+      return x * k;
+    };
+    const out = axes.map((a) => ({ x: r3(a.x * k), part: a.src.erker ? 'erker' : a.src.added ? 'added' : 'axis' + a.src.axis, kind: a.src.kind, src: a.src }));
+    const info = (added ? `добавлено средних осей: ${added}` : removed ? `убрано средних осей: ${removed}` : 'оси альбома') + `, всего осей: ${out.length}; расстояния ×${fmt(k, 3)}`;
+    return {
+      axes: out, parts: [{ kind: 'all', name: 'фасад', x0: 0, x1: W }], k, added, removed,
+      ground: ground.map((q) => Object.assign({}, q.g, { x: r3(q.x * k) })),
+      parapet: st.parapet.profile_m.map(([x, dz]) => [r3(mapX(x)), dz]),
+      stepInfo: 'оси разной ширины; ' + info
+    };
+  }
+
+  function plans04(st, W) {
+    const g = st.generator;
+    const list = [];
+    for (let n = g.axes_min; n <= g.axes_max; n++) {
+      const pl = plan04(st, W, n);
+      if (!pl.error) list.push(pl);
+    }
+    return list.sort((a, b) => Math.abs(Math.log(a.k)) - Math.abs(Math.log(b.k)));
   }
 
   // 05: два боковых ризалита фиксированной ширины (R05.1), в центре оси
@@ -353,7 +408,7 @@
     ctx.sec.crown.forEach((c, i) => {
       const last = i === ctx.sec.crown.length - 1;
       const proj = inner ? 0 : last ? 0.6 : i === 0 ? 0 : 0.15;
-      ctx.add({ type: 'crown', x0, x1, z0: c.z0, z1: c.z1, name: c.name, projection: proj, kindHint, last, counts: true });
+      ctx.add({ type: 'crown', x0, x1, z0: c.z0, z1: c.z1, name: c.name, projection: proj, kindHint, last, limited: true });
     });
   }
 
@@ -374,7 +429,7 @@
     const { add } = ctx;
     const cornice = sec.cornice;
     const por = plan.portico;
-    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: cornice, counts: true });
+    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: cornice, limited: true });
     add({ type: 'plinth', x0: 0, x1: W, z0: 0, z1: sec.plinth, name: st.section.plinth_finish });
     const f1 = ctx.fl(1);
     add({ type: 'rust', pattern: 'band', x0: 0, x1: W, z0: f1.z0, z1: f1.z1, course: st.section.floors[0].rust_course_m, floor: 1 });
@@ -421,7 +476,7 @@
     const at = st.attic;
     const cx = (por.x0 + por.x1) / 2;
     const atTop = cornice + at.height_m;
-    add({ type: 'attic', parts: [{ x0: r3(cx - at.half_width_m), x1: r3(cx + at.half_width_m), z0: cornice, z1: r3(atTop - 0.18) }, { x0: r3(cx - at.cap_half_width_m), x1: r3(cx + at.cap_half_width_m), z0: r3(atTop - 0.18), z1: r3(atTop) }], counts: true, name: 'аттик над портиком' });
+    add({ type: 'attic', parts: [{ x0: r3(cx - at.half_width_m), x1: r3(cx + at.half_width_m), z0: cornice, z1: r3(atTop - 0.18) }, { x0: r3(cx - at.cap_half_width_m), x1: r3(cx + at.cap_half_width_m), z0: r3(atTop - 0.18), z1: r3(atTop) }], name: 'аттик над портиком' });
     const sculTop = cornice + (at.sculpture_top_m - st.album.cornice_m);
     add({ type: 'sculpture', x0: r3(cx - at.sculpture_half_width_m), x1: r3(cx + at.sculpture_half_width_m), z0: r3(atTop), z1: r3(sculTop), name: 'скульптурная группа' });
     return ctx.E;
@@ -431,7 +486,7 @@
   function build02(st, W, N, sec, plan) {
     const ctx = mkCtx(st, W, sec);
     const { add } = ctx;
-    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: sec.cornice, counts: true });
+    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: sec.cornice, limited: true });
     add({ type: 'plinth', x0: 0, x1: W, z0: 0, z1: sec.plinth, name: st.section.plinth_finish });
     const f1 = ctx.fl(1);
     // R02.1: руст только на первом этаже
@@ -468,7 +523,7 @@
     const { add } = ctx;
     const cen = plan.center;
     const C = st.plan.center;
-    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: sec.cornice, counts: true });
+    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: sec.cornice, limited: true });
     add({ type: 'plinth', x0: 0, x1: W, z0: 0, z1: sec.plinth, name: st.section.plinth_finish });
     add({ type: 'block', x0: cen.x0, x1: cen.x1, z0: sec.plinth, z1: sec.cornice, name: 'центральный ризалит' });
     belts(ctx, st.belts, 0, W);
@@ -482,6 +537,8 @@
     const firstExtreme = 0, lastExtreme = plan.axes.length - 1;
     const doorAxis = ci - 1; // R03: вход — по оси слева от ризалита (как в альбоме)
     const ex = st.extreme_axes;
+    // фронтоны крайних осей — на предпоследнем этаже, как в альбоме (3-й из 4)
+    const pedFloor = sec.floors[sec.floors.length - 2];
     for (const [i, a] of plan.axes.entries()) {
       for (const f of sec.floors) {
         if (a.part === 'center') {
@@ -499,7 +556,7 @@
         // R03.3: одно обрамление окон на всех этажах (без поэтажных сандриков, архивольтов)
         const w = opening(ctx, spec, f, a.x, { axis: i + 1, frame: 'plain' });
         // R03.1: крайние оси отмечены лучковыми фронтонами
-        if (f.role === ex.floor && (i === firstExtreme || i === lastExtreme)) {
+        if (f === pedFloor && (i === firstExtreme || i === lastExtreme)) {
           add({ type: 'sandrik', shape: 'segment', x: a.x, w: ex.pediment_w_m, h: ex.pediment_h_m, z0: r3(w.z0 + w.h + ex.gap_above_window_m), consoles: true, name: 'лучковый фронтон' });
         }
       }
@@ -515,7 +572,7 @@
       const at = st.attic;
       const z = sec.cornice;
       const z1 = z + at.base_h_m, z2 = z1 + at.cornice_h_m, z3 = z2 + at.step_h_m;
-      add({ type: 'attic', counts: true, name: 'ступенчатый аттик с полуциркульным фронтоном', parts: [
+      add({ type: 'attic', name: 'ступенчатый аттик с полуциркульным фронтоном', parts: [
         { x0: r3(cen.cx - at.base_w_m / 2), x1: r3(cen.cx + at.base_w_m / 2), z0: z, z1: r3(z1) },
         { x0: r3(cen.cx - at.cornice_w_m / 2), x1: r3(cen.cx + at.cornice_w_m / 2), z0: r3(z1), z1: r3(z2) },
         { x0: r3(cen.cx - at.step_w_m / 2), x1: r3(cen.cx + at.step_w_m / 2), z0: r3(z2), z1: r3(z3) }
@@ -528,26 +585,27 @@
   function build04(st, W, N, sec, plan, o) {
     const ctx = mkCtx(st, W, sec);
     const { add } = ctx;
-    const k = plan.k;
     const top = sec.lastTop;
-    // волнистый парапет вместо карниза (R04.1)
-    const prof = st.parapet.profile_m.map(([x, dz]) => [r3(x * k), r3(top + dz)]);
-    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: top, outline: [[0, 0]].concat(prof).concat([[W, 0]]), counts: false });
-    add({ type: 'parapet', pts: prof, counts: true, name: st.parapet.kind + ' парапет' });
+    // волнистый парапет вместо карниза (R04.1); профиль привязан к эркеру и краям
+    const prof = plan.parapet.map(([x, dz]) => [x, r3(top + dz)]);
+    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: top, outline: [[0, 0]].concat(prof).concat([[W, 0]]) });
+    add({ type: 'parapet', pts: prof, limited: true, name: st.parapet.kind + ' парапет' });
     // R04.1: два нижних этажа — единый цоколь из рваного гранита
     const gTop = st.section.granite_top_m;
     add({ type: 'rust', pattern: 'rough', x0: 0, x1: W, z0: 0, z1: gTop, course: st.section.floors[0].rust_course_m, floor: '1–2' });
     belts(ctx, st.belts, 0, W);
-    for (const g of st.ground_floor) {
+    // 1-й этаж и люнет идут вместе со своими осями; под добавленными средними
+    // осями на 1–2-м этажах проёмов нет (у средней оси альбома там вход, он один)
+    for (const g of plan.ground) {
       if (g.kind === 'lunette') {
-        add({ type: 'opening', kind: 'window', x: r3(g.x_m * k), w: g.w_m, z0: g.z0_m, h: g.h_m, shape: 'lunette', floor: 2 });
+        add({ type: 'opening', kind: 'window', x: g.x, w: g.w_m, z0: g.z0_m, h: g.h_m, shape: 'lunette', floor: 2 });
         continue;
       }
-      add({ type: 'opening', kind: g.kind, x: r3(g.x_m * k), w: g.w_m, z0: g.z0_m, h: g.h_m, shape: g.shape, floor: 1 });
+      add({ type: 'opening', kind: g.kind, x: g.x, w: g.w_m, z0: g.z0_m, h: g.h_m, shape: g.shape, floor: 1 });
     }
     const erkerOn = o.erker;
     for (const [i, a] of plan.axes.entries()) {
-      const key = a.src.erker ? 'erker' : 'axis' + a.src.axis;
+      const key = a.src.erker ? 'erker' : a.src.windowsKey || 'axis' + a.src.axis;
       const specs = st.windows[key];
       for (const f of sec.floors) {
         if (f.role === 1) continue;
@@ -568,12 +626,12 @@
       const ax = plan.axes.find((a) => a.src.erker);
       const f3 = sec.floors.find((f) => f.role >= er.from_floor);
       const z1 = r3(top + er.top_above_last_floor_m);
-      add({ type: 'erker', shape: 'round', x0: r3(ax.x - er.w_m / 2), x1: r3(ax.x + er.w_m / 2), z0: f3.z0, z1, counts: true, bands: sec.floors.filter((f) => f.z0 > f3.z0 + EPS).map((f) => f.z0) });
+      add({ type: 'erker', shape: 'round', x0: r3(ax.x - er.w_m / 2), x1: r3(ax.x + er.w_m / 2), z0: f3.z0, z1, limited: true, bands: sec.floors.filter((f) => f.z0 > f3.z0 + EPS).map((f) => f.z0) });
       add({ type: 'console', x0: r3(ax.x - er.w_m / 2), x1: r3(ax.x + er.w_m / 2), z0: r3(f3.z0 - er.console_h_m), z1: f3.z0 });
-      add({ type: 'brow', x0: r3(ax.x - er.brow.w_m / 2), x1: r3(ax.x + er.brow.w_m / 2), z0: z1, rise: er.brow.rise_m, counts: true });
+      add({ type: 'brow', x0: r3(ax.x - er.brow.w_m / 2), x1: r3(ax.x + er.brow.w_m / 2), z0: z1, rise: er.brow.rise_m, name: 'бровка над эркером (кровля)' });
     }
     const fb = st.balconies[0];
-    const ax2 = plan.axes[1];
+    const ax2 = plan.axes.find((a) => a.src.axis === 2);
     const bfl = ctx.fl(fb.floor);
     if (bfl) balconyEl(ctx, fb, ax2.x, bfl);
     return ctx.E;
@@ -587,10 +645,10 @@
     const rc = st.section.risalit_crown;
     const f5 = ctx.fl(5);
     const rTop = r3(f5.z1 + rc.top_above_m);
-    add({ type: 'wall', x0: R, x1: r3(W - R), z0: 0, z1: sec.cornice, counts: true });
-    for (const [x0, x1] of [[0, R], [W - R, W]]) add({ type: 'wall', x0: r3(x0), x1: r3(x1), z0: 0, z1: rTop, counts: true, name: 'ризалит' });
+    add({ type: 'wall', x0: R, x1: r3(W - R), z0: 0, z1: sec.cornice, limited: true });
+    for (const [x0, x1] of [[0, R], [W - R, W]]) add({ type: 'wall', x0: r3(x0), x1: r3(x1), z0: 0, z1: rTop, limited: true, name: 'ризалит' });
     const attic = ctx.fl('attic');
-    if (attic) add({ type: 'wall', x0: R, x1: r3(W - R), z0: attic.z0, z1: attic.z1, counts: true, name: 'аттиковый этаж' });
+    if (attic) add({ type: 'attic-floor', x0: R, x1: r3(W - R), z0: attic.z0, z1: attic.z1, name: 'аттиковый этаж' });
     // R05.1: двухэтажная база из рваного гранита
     add({ type: 'rust', pattern: 'rough', x0: 0, x1: W, z0: 0, z1: st.section.granite_top_m, course: st.section.floors[0].rust_course_m, floor: '1–2' });
     belts(ctx, st.belts, 0, W);
@@ -608,8 +666,8 @@
     // антаблемент центра и венчание ризалитов
     crownEls(ctx, R, r3(W - R), 'dentils', true);
     for (const [x0, x1] of [[0, R], [W - R, W]]) {
-      add({ type: 'crown', x0: r3(x0), x1: r3(x1), z0: r3(f5.z1 + rc.frieze_m[0]), z1: r3(f5.z1 + rc.frieze_m[1]), name: 'фриз ризалита с картушем', projection: 0, counts: true });
-      add({ type: 'crown', x0: r3(x0), x1: r3(x1), z0: r3(f5.z1 + rc.cornice_m[0]), z1: r3(f5.z1 + rc.cornice_m[1]), name: 'карниз ризалита на кронштейнах', projection: rc.cornice_projection_m, counts: true });
+      add({ type: 'crown', x0: r3(x0), x1: r3(x1), z0: r3(f5.z1 + rc.frieze_m[0]), z1: r3(f5.z1 + rc.frieze_m[1]), name: 'фриз ризалита с картушем', projection: 0, limited: true });
+      add({ type: 'crown', x0: r3(x0), x1: r3(x1), z0: r3(f5.z1 + rc.cornice_m[0]), z1: r3(f5.z1 + rc.cornice_m[1]), name: 'карниз ризалита на кронштейнах', projection: rc.cornice_projection_m, limited: true });
     }
     // окна центра; R05: проезд под 3-й осью центра
     const passIdx = Math.min(3, ca.length) - 1;
@@ -648,7 +706,7 @@
   function build06(st, W, N, sec, plan, o) {
     const ctx = mkCtx(st, W, sec);
     const { add } = ctx;
-    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: sec.cornice, counts: true });
+    add({ type: 'wall', x0: 0, x1: W, z0: 0, z1: sec.cornice, limited: true });
     add({ type: 'plinth', x0: 0, x1: W, z0: 0, z1: sec.plinth, name: st.section.plinth_finish });
     const f2 = ctx.fl(2);
     // R06.1: руст на первых двух этажах как цоколь
@@ -705,7 +763,7 @@
     if (o.center) {
       const er = st.erker;
       const a = plan.axes[c];
-      add({ type: 'erker', shape: 'three-sided', x0: r3(a.x - er.w_m / 2), x1: r3(a.x + er.w_m / 2), front: er.front_w_m, z0: oz0, z1: r3(fTop.z1 + er.top_above_last_floor_m), counts: true, bands: [] });
+      add({ type: 'erker', shape: 'three-sided', x0: r3(a.x - er.w_m / 2), x1: r3(a.x + er.w_m / 2), front: er.front_w_m, z0: oz0, z1: r3(fTop.z1 + er.top_above_last_floor_m), limited: true, bands: [] });
     }
     crownEls(ctx, 0, W, 'modillions');
     roofEl(ctx, st.section.roof, 0, W, sec.cornice);
@@ -717,7 +775,6 @@
     switch (st.id) {
       case '01': return plan01(st, W);
       case '03': return plan03(st, W, o);
-      case '04': return plan04(st, W);
       case '05': return plan05(st, W);
       default: return null;
     }
@@ -727,16 +784,20 @@
 
   function assemble(data, st, W, N, o, sec, plan) {
     const elements = BUILD[st.id](st, W, N, sec, plan, o);
-    const counted = elements.filter((e) => e.counts);
     const topOf = (e) => {
-      if (e.type === 'parapet') return Math.max(...e.pts.map((p) => p[1]));
+      if (e.type === 'parapet' || e.type === 'roof') return Math.max(...e.pts.map((p) => p[1]));
       if (e.type === 'attic') return Math.max(...e.parts.map((p) => p.z1)) + (e.arch ? e.arch.r : 0);
       if (e.type === 'brow') return e.z0 + e.rise; // rise — подъём вершины кривой
       return e.z1;
     };
-    const wallTop = r3(Math.max(...counted.map(topOf)));
-    const exempt = elements.filter((e) => e.type === 'roof' || e.type === 'sculpture');
-    const roofTop = exempt.length ? r3(Math.max(...exempt.map((e) => (e.type === 'roof' ? Math.max(...e.pts.map((p) => p[1])) : e.z1)))) : null;
+    const maxTop = (list) => (list.length ? r3(Math.max(...list.map(topOf))) : null);
+    // G3 + ответ автора (вопрос 11): предел — для карниза и парапета (у 05 — и
+    // карнизов ризалитов; эркер 04 и 06 считается стеной). Аттик, аттиковый
+    // этаж, кровля, бровка эркера и скульптура могут быть выше.
+    const limitTop = maxTop(elements.filter((e) => e.limited));
+    const atticTop = maxTop(elements.filter((e) => e.type === 'attic' || e.type === 'attic-floor'));
+    const roofTop = maxTop(elements.filter((e) => e.type === 'roof' || e.type === 'sculpture'));
+    const wallTop = Math.max(limitTop, atticTop || 0, maxTop(elements.filter((e) => e.type === 'brow')) || 0);
     const parapet = elements.find((e) => e.type === 'parapet');
     const model = {
       style: st.id, styleKey: st.key, styleName: st.name, house: st.house,
@@ -748,7 +809,7 @@
       cornice: sec.cornice,
       parapetTop: parapet ? r3(Math.max(...parapet.pts.map((p) => p[1]))) : null,
       parapetMin: parapet ? r3(Math.min(...parapet.pts.map((p) => p[1]))) : null,
-      wallTop, roofTop,
+      limitTop, atticTop, wallTop, roofTop,
       limit: data.limit.cornice_max_m,
       elements,
       plan
@@ -769,17 +830,26 @@
     // G1: карниз (или парапет) не выше 23,5 м — проверяется по готовой модели ниже
     const limit = data.limit.cornice_max_m;
     let model;
+    // варианты раскладки по порядку предпочтения; берётся первый, где проёмы
+    // помещаются (T1–T3)
+    let cands = null;
     if (st.id === '02' || st.id === '06') {
-      const target = st.id === '02' ? o.step : o.step;
+      const target = o.step;
       const constraint = st.id === '06' && o.center ? (n) => n % 2 === 1 && n >= 5 : (n) => n >= 3;
       const pr = planRow(st, W, target, constraint);
       if (pr.error) return fail(pr.error);
-      let lastErr = 'Нет подходящего числа осей.';
-      for (const cnd of pr.cands) {
+      cands = pr.cands.map((cnd) => {
         const ra = rowAxes(W, pr.e, cnd.n);
-        const plan = { axes: ra.axes, parts: [{ kind: 'row', name: 'фасад', x0: 0, x1: W }], step: ra.step, stepInfo: `шаг ${fmt(ra.step, 3)} м (задан ${fmt(target, 2)})` };
+        return { axes: ra.axes, parts: [{ kind: 'row', name: 'фасад', x0: 0, x1: W }], step: ra.step, stepInfo: `шаг ${fmt(ra.step, 3)} м (задан ${fmt(target, 2)})` };
+      });
+    } else if (st.id === '04') {
+      cands = plans04(st, W);
+    }
+    if (cands) {
+      let lastErr = 'Нет подходящего числа осей.';
+      for (const plan of cands) {
         const m = assemble(data, st, W, N, o, sec, plan);
-        const bad = m.checks.filter((c) => !c.ok && (c.id.startsWith('T') || c.id === 'G1'));
+        const bad = m.checks.filter((c) => !c.ok && c.id.startsWith('T'));
         if (!bad.length) { model = m; break; }
         lastErr = bad.map((c) => c.detail).join('; ');
       }
@@ -789,8 +859,8 @@
       if (plan.error) return fail(plan.error);
       model = assemble(data, st, W, N, o, sec, plan);
     }
-    if (model.wallTop > limit + EPS) {
-      return fail(`Карниз/парапет был бы на ${fmt(model.wallTop, 2)} м — выше предела ${fmt(limit, 1)} м.`, { wallTop: model.wallTop });
+    if (model.limitTop > limit + EPS) {
+      return fail(`Карниз/парапет был бы на ${fmt(model.limitTop, 2)} м — выше предела ${fmt(limit, 1)} м.`, { limitTop: model.limitTop });
     }
     const hard = model.checks.filter((c) => !c.ok && c.hard);
     if (hard.length) return fail(hard.map((c) => `${c.id}: ${c.detail}`).join('; '), { model });
@@ -800,12 +870,13 @@
 
   function notesFor(st, m) {
     const out = [];
-    if (m.section.normalized) {
-      const nz = m.section.normalized;
-      out.push(`G2: высоты этажей альбома ${nz.from.map((v) => fmt(v)).join(' / ')} м приведены к правилу «первый этаж — самый высокий»: ${nz.hs.map((v) => fmt(v)).join(' / ')} м (сумма и отметка карниза сохранены; это техническое решение — см. вопросы автору).`);
+    const h = m.section.heights;
+    if (h.source === 'author') out.push(`Высоты этажей ${h.hs.map((v) => fmt(v)).join(' / ')} м заданы автором (в альбоме ${h.album.map((v) => fmt(v)).join(' / ')} м): 1-й этаж выше остальных, сумма и отметка карниза как в альбоме.`);
+    if (st.id === '04' && Math.abs(m.plan.k - 1) > 0.25) out.push(`Расстояния между осями модерна ×${fmt(m.plan.k, 2)} к альбому: даже ${st.generator.axes_max} оси не заполняют ширину без растяжения.`);
+    if (st.id === '01') {
+      const s0 = st.plan.parts[2].axis_step_m, s1 = m.plan.portico.step;
+      if (Math.abs(s1 / s0 - 1) > 0.25) out.push(`Шаг портика ${fmt(s1)} м против ${fmt(s0)} м в альбоме: число колонн ограничено 4 / 6 / 8, остальное уходит в шаг.`);
     }
-    if (st.id === '04' && Math.abs(m.plan.k - 1) > 0.25) out.push(`Оси модерна растянуты в ${fmt(m.plan.k, 2)} раза относительно альбома: правила не говорят, как модерн растёт по ширине (вопрос автору).`);
-    if (st.id === '06') out.push('R06.3 «не берём карниз вплотную к пределу» не реализовано: в правилах нет величины зазора (вопрос автору).');
     return out;
   }
 
@@ -819,10 +890,13 @@
     const push = (id, ok, detail, hard, warn) => C.push({ id, title: RULE_TITLES[id] || id, ok: !!ok, detail, hard: !!hard, warn: !!warn });
     const E = m.elements;
     const ops = E.filter((e) => e.type === 'opening');
-    // G1: предел 23,5 м — жёсткое ограничение; G3: относится к карнизу или парапету
-    // (и, осторожно, к аттику); кровля и скульптура могут быть выше
-    push('G1', m.wallTop <= m.limit + EPS, `верх карниза/парапета/аттика ${fmt(m.wallTop, 2)} м ≤ ${fmt(m.limit, 1)} м (запас ${fmt(m.limit - m.wallTop, 2)} м)`, true);
-    if (m.roofTop) push('G3', true, `${m.style === '01' ? 'скульптура' : 'кровля'} до ${fmt(m.roofTop, 2)} м в предел не входит${m.roofTop > m.limit ? ' — и выше 23,5 м это допустимо' : ''}`, false);
+    // G1: предел 23,5 м — жёсткое ограничение; G3: относится к карнизу и парапету,
+    // аттик, кровля и скульптура могут быть выше
+    push('G1', m.limitTop <= m.limit + EPS, `верх карниза/парапета ${fmt(m.limitTop, 2)} м ≤ ${fmt(m.limit, 1)} м (запас ${fmt(m.limit - m.limitTop, 2)} м)`, true);
+    const above = [];
+    if (m.atticTop) above.push(`${m.style === '05' ? 'аттиковый этаж' : 'аттик'} до ${fmt(m.atticTop, 2)} м`);
+    if (m.roofTop) above.push(`${m.style === '01' ? 'скульптура' : 'кровля'} до ${fmt(m.roofTop, 2)} м`);
+    if (above.length) push('G3', true, above.join(', ') + ' — в предел не входят' + (Math.max(m.atticTop || 0, m.roofTop || 0) > m.limit ? '; выше 23,5 м это допустимо' : ''), false);
     // T1: оси влезают в ширину
     const ax = m.axes;
     const inside = ax.every((a) => a.x > EPS && a.x < m.W - EPS);
@@ -834,13 +908,15 @@
     push('T2', !clash, clash ? `пересекаются проёмы на осях ${clash[0].axis || '—'} и ${clash[1].axis || '—'} (этаж ${clash[0].floor})` : `${ops.length} проёмов, пересечений нет`, true);
     // T3: проёмы в пределах фасада
     const out = ops.find((e) => { const r = rectOf(e); return r.x0 < -EPS || r.x1 > m.W + EPS || r.z0 < -EPS || r.z1 > m.wallTop + EPS; });
-    push('T3', !out, out ? `проём на оси ${out.axis} выходит за фасад` : 'все проёмы в пределах фасада', true);
-    // G2: первый этаж — самый высокий
+    const erOut = E.find((e) => e.type === 'erker' && (e.x0 < -EPS || e.x1 > m.W + EPS));
+    push('T3', !out && !erOut, out ? `проём на оси ${out.axis} выходит за фасад` : erOut ? 'эркер выходит за край фасада' : 'все проёмы и эркер в пределах фасада', true);
+    // G2: первый этаж — самый высокий, строго выше остальных (ответ автора)
     const hs = m.section.floors.map((f) => f.h);
-    push('G2', hs.every((h) => h <= hs[0] + EPS), `1-й этаж ${fmt(hs[0], 2)} м, остальные до ${fmt(Math.max(...hs.slice(1).concat([0])), 2)} м`, true);
+    const hMax = Math.max(...hs.slice(1).concat([0]));
+    push('G2', hs[0] > hMax + EPS, `1-й этаж ${fmt(hs[0], 2)} м, остальные до ${fmt(hMax, 2)} м`, true);
     // G5: симметрия (кроме модерна); ворота и проезды могут стоять не по оси
     const sym = ax.every((a, i) => Math.abs(a.x + ax[ax.length - 1 - i].x - m.W) < 1e-3);
-    if (m.style === '04') push('G5', !sym, sym ? 'оси симметричны — в модерне асимметрия обязательна' : `асимметрия: эркер смещён от середины на ${fmt(ax[2].x - m.W / 2, 2)} м`, true);
+    if (m.style === '04') { const ea = ax.find((a) => a.part === 'erker'); push('G5', !sym && Math.abs(ea.x - m.W / 2) > 0.1, sym ? 'оси симметричны — в модерне асимметрия обязательна' : `асимметрия: эркерная ось смещена от середины на ${fmt(ea.x - m.W / 2, 2)} м`, true); }
     else if (m.style === '03' && m.options.freeSymmetry) push('G5', true, sym ? 'оси симметричны' : 'отступление от строгой симметрии разрешено для эклектики (R03.2)', false);
     else push('G5', sym, sym ? 'оси симметричны относительно середины' : 'оси несимметричны', true);
     // F1: ордер только на каменном или рустованном основании
@@ -870,6 +946,8 @@
         const f1 = m.section.floors[0];
         R('R01.1', kinds === 'risalit,wing,portico,wing,risalit' && wings === 12 && fin(f1) === 'rust' && f1.h >= Math.max(...hs) - EPS && cols.length > 0,
           `части: ризалит–крыло–портик–крыло–ризалит; в крыльях по ${wings / 2} осей; 1-й этаж рустован, ${fmt(f1.h)} м — самый высокий; ордер на нём`);
+        const pc = m.plan.portico.columns;
+        R('R01.2', st.generator.portico_columns.includes(pc), `портик: ${pc} колонн, ${m.plan.portico.spans} пролётов, шаг ${fmt(m.plan.portico.step)} м`);
         break;
       }
       case '02': {
@@ -880,7 +958,7 @@
           `руст только на 1-м этаже; сильный пояс на отметке ${strong ? fmtMark(strong.z0) : '—'} (верх 2-го этажа)`);
         const top3 = m.section.floors.filter((f) => f.role === 3);
         const ornate = E.some((e) => e.type === 'sandrik');
-        R('R02.3', !ornate && top3.every((f) => f.h <= hs[0] + EPS), `3-й этаж ${top3.length ? fmt(top3[0].h) : '—'} м, не выше 1-го; без сандриков и филёнок`);
+        R('R02.3', !ornate && top3.every((f) => f.h < hs[0] - EPS), `3-й этаж ${top3.length ? fmt(top3[0].h) : '—'} м — ниже 1-го (${fmt(hs[0])} м); без сандриков и филёнок`);
         break;
       }
       case '03': {
@@ -904,7 +982,8 @@
         const rust = E.find((e) => e.type === 'rust' && e.pattern === 'rough');
         const par = E.find((e) => e.type === 'parapet');
         const crown = E.some((e) => e.type === 'crown');
-        R('R04.1', !sym && widths.size >= 2 && base && rust && par && !crown, `асимметрия; ширины осей ${[...widths].map((w) => fmt(w, 1)).join(' / ')} м; 1–2-й этажи — рваный гранит до ${fmtMark(rust ? rust.z1 : 0)}; парапет вместо карниза`);
+        const g4 = st.generator;
+        R('R04.1', !sym && widths.size >= 2 && base && rust && par && !crown && ax.length >= g4.axes_min && ax.length <= g4.axes_max, `асимметрия; ${ax.length} осей (можно ${g4.axes_min}–${g4.axes_max}), ширины окон ${[...widths].sort((p, q) => p - q).map((w) => fmt(w, 1)).join(' / ')} м; 1–2-й этажи — рваный гранит до ${fmtMark(rust ? rust.z1 : 0)}; парапет вместо карниза`);
         break;
       }
       case '05': {
@@ -919,7 +998,11 @@
         const rust = E.find((e) => e.type === 'rust');
         R('R06.1', rust && rust.floor === '1–2', 'руст на 1–2-м этажах как цоколь');
         const bal = E.filter((e) => e.type === 'balcony');
-        push('R06.3', bal.length === 0, 'балконов с балюстрадой нет; «карниз вплотную к пределу» не реализовано — не задан зазор (вопрос автору)', true, true);
+        // ответ автора: «не тянуть карниз к пределу» — отметка карниза только из высот
+        // этажей и венчания альбома, без подгонки к 23,5 м
+        const sec = m.section;
+        const own = sec.floors.reduce((a, f) => a + st.section.floors[f.role - 1].height_m, sec.plinth) + st.section.crown.reduce((a, c) => a + c.height_m, 0);
+        R('R06.3', bal.length === 0 && Math.abs(own - m.cornice) < 1e-6, `балконов с балюстрадой нет; карниз ${fmt(m.cornice, 2)} м = цоколь + этажи + венчание по альбому (к пределу не подгоняется)`);
         break;
       }
     }
@@ -930,7 +1013,7 @@
   const RULE_TITLES = {
     G1: 'Карниз (парапет) не выше 23,5 м',
     G2: 'Первый этаж — самый высокий',
-    G3: 'Кровля и скульптура могут быть выше предела',
+    G3: 'Аттик, кровля и скульптура могут быть выше предела',
     G5: 'Симметрия (в модерне — асимметрия)',
     G6: 'Рустованы лопатки центрального ризалита',
     F1: 'Нет ордера без каменного или рустованного основания',
@@ -940,11 +1023,12 @@
     T2: 'Проёмы не пересекаются',
     T3: 'Проёмы в пределах фасада',
     'R01.1': 'Пятичастная композиция, по 6 осей в крыле, ордер на рустованном 1-м этаже',
+    'R01.2': 'Портик не убирается, меняется число колонн (4 / 6 / 8)',
     'R02.1': 'Руст только на 1-м этаже, сильный пояс между 2-м и 3-м',
     'R02.3': 'Не берём высокий нарядный 3-й этаж',
     'R03.1': 'Узкий ризалит с парными окнами и балконом, лучковые фронтоны на крайних осях',
     'R03.3': 'Не берём отдельное обрамление окон для каждого этажа',
-    'R04.1': 'Асимметрия, оси разной ширины, гранитный цоколь на 2 этажа, волнистый парапет',
+    'R04.1': 'Асимметрия, оси разной ширины (3–6), гранитный цоколь на 2 этажа, волнистый парапет',
     'R05.1': 'Симметрия, 2 ризалита, ордер на 3 этажа, гранитная база, порталы с фронтонами',
     'R06.1': 'Руст на 1–2-м этажах как цоколь',
     'R06.3': 'Не берём карниз вплотную к пределу и балконы с балюстрадой'
@@ -959,8 +1043,8 @@
       if (sec.error) { list.push({ N, ok: false, reason: sec.error }); continue; }
       // верх стены по этой схеме (без раскладки): берём модель на альбомной ширине
       const g = generate(data, { style: st.id, width: st.album.width_m, floors: N, options: opts });
-      if (g.ok) list.push({ N, ok: true, wallTop: g.model.wallTop, cornice: g.model.cornice });
-      else list.push({ N, ok: false, reason: g.error, wallTop: g.wallTop });
+      if (g.ok) list.push({ N, ok: true, limitTop: g.model.limitTop, cornice: g.model.cornice });
+      else list.push({ N, ok: false, reason: g.error, limitTop: g.limitTop });
     }
     const okN = list.filter((x) => x.ok).map((x) => x.N);
     return { list, min: Math.min(...okN), max: Math.max(...okN) };
@@ -1005,7 +1089,8 @@
       const lv = m.section.floors.map((f) => f.z0);
       const al = A.floor_levels_m;
       row.levelShift = lv.length === al.length ? r3(Math.max(...lv.map((z, i) => Math.abs(z - al[i])))) : null;
-      row.wallTop = { album: A.wall_top_m, gen: m.wallTop, diff: r3(m.wallTop - A.wall_top_m) };
+      const albLim = Math.max(...[A.cornice_m, A.risalit_cornice_m, A.parapet_top_m].filter((v) => typeof v === 'number'));
+      row.limitTop = { album: albLim, gen: m.limitTop, diff: r3(m.limitTop - albLim) };
       row.notes = (m.notes || []).slice();
       row.checksOk = m.checks.every((c) => c.ok);
       return row;
@@ -1058,7 +1143,7 @@
     const E = m.elements;
     const by = (t) => E.filter((e) => e.type === t);
     // 1. стены
-    for (const e of by('wall')) {
+    for (const e of by('wall').concat(by('attic-floor'))) {
       if (e.outline) { poly(e.outline, 'n', '#ffffff'); }
       else rect(e.x0, e.z0, e.x1, e.z1, 'n', '#ffffff');
     }
@@ -1179,7 +1264,7 @@
     // квадратичная кривая: контрольная точка на 2·rise даёт вершину на rise
     for (const e of by('brow')) path(`M ${X(e.x0)} ${Y(e.z0)} Q ${X((e.x0 + e.x1) / 2)} ${Y(e.z0 + 2 * e.rise)} ${X(e.x1)} ${Y(e.z0)} L ${X(e.x1 - 0.15)} ${Y(e.z0 - 0.15)} Q ${X((e.x0 + e.x1) / 2)} ${Y(e.z0 + 2 * e.rise - 0.6)} ${X(e.x0 + 0.15)} ${Y(e.z0 - 0.15)} Z`, 'm', '#5a5a5a');
     // 12. контур стены и земля
-    for (const e of by('wall')) {
+    for (const e of by('wall').concat(by('attic-floor'))) {
       if (e.outline) pline(e.outline, 'o');
       else pline([[e.x0, e.z0], [e.x0, e.z1], [e.x1, e.z1], [e.x1, e.z0]], 'o');
     }
@@ -1225,7 +1310,7 @@
     const af = sec.floors.find((f) => f.role === 'attic');
     if (af) vz.push(af.z1);
     if (m.parapetTop !== null) vz.push(m.parapetTop);
-    if (E.some((e) => e.type === 'attic' && e.arch)) vz.push(m.wallTop);
+    if (E.some((e) => e.type === 'attic' && e.arch)) vz.push(m.atticTop);
     const uniq = [...new Set(vz.map(r3))].sort((p, q) => p - q);
     const xv = -9 * a;
     line(xv, uniq[0] - 1.5 * a, xv, uniq[uniq.length - 1] + 1.5 * a, 'dim');
@@ -1256,7 +1341,7 @@
     if (m.cornice !== null && sec.crown.length > 1) marks.push({ z: sec.lastTop });
     if (m.cornice !== null) marks.push({ z: m.cornice, bold: true, label: 'карниз' });
     if (m.parapetTop !== null) { marks.push({ z: m.parapetMin, label: 'парапет' }); marks.push({ z: m.parapetTop, bold: true, label: 'верх парапета' }); }
-    if (m.wallTop > (m.cornice || 0) + 0.05 && m.wallTop !== m.parapetTop) marks.push({ z: m.wallTop, label: m.style === '05' ? 'аттик. этаж' : 'аттик' });
+    if (m.atticTop) marks.push({ z: m.atticTop, label: m.style === '05' ? 'аттик. этаж' : 'аттик' });
     if (m.style === '05') marks.push({ z: E.find((e) => e.name === 'ризалит').z1, label: 'ризалиты' });
     if (m.roofTop) marks.push({ z: m.roofTop, label: m.style === '01' ? 'скульптура' : 'кровля' });
     marks.sort((p, q) => p.z - q.z || (q.label ? 1 : 0) - (p.label ? 1 : 0));
@@ -1306,7 +1391,6 @@
     getStyle,
     styleOptions,
     fillOptions,
-    normalizeFirstFloor,
     buildSection,
     generate,
     checkModel,
