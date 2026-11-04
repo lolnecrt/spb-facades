@@ -2,7 +2,8 @@
 //
 // 1. 200 случайных фасадов в допустимых диапазонах: каждый строится, ничего,
 //    кроме аттика, кровли и скульптуры, не выше 23,5 м; оси внутри ширины; проёмы
-//    (окна, двери, ворота) не пересекаются и не выходят за фасад.
+//    (окна, двери, ворота) не пересекаются и не выходят за фасад; в объёме для
+//    3d.html отверстия лежат внутри контура стены и не касаются друг друга.
 //    Геометрия проверяется здесь заново, а не через проверки самого генератора.
 // 2. Запросы за пределами диапазонов: генератор отказывает, а не строит
 //    фасад выше предела.
@@ -36,6 +37,19 @@ const uni = (a, b) => a + (b - a) * rand();
 
 let failures = 0;
 const fail = (msg) => { failures++; if (failures <= 30) console.log('  ✗ ' + msg); };
+
+// точка строго внутри многоугольника: по лучу внутри и не ближе 1 мм к рёбрам
+function inPoly(p, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j];
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) c = !c;
+    const dx = xj - xi, dy = yj - yi, L = dx * dx + dy * dy;
+    const t = L ? Math.max(0, Math.min(1, ((p[0] - xi) * dx + (p[1] - yi) * dy) / L)) : 0;
+    if (Math.hypot(p[0] - xi - t * dx, p[1] - yi - t * dy) < 1e-3) return false;
+  }
+  return c;
+}
 
 // верх элемента по его геометрии
 function topOf(e) {
@@ -80,6 +94,7 @@ function inspect(req, m, label) {
   for (let i = 0; i < ops.length; i++) for (let j = i + 1; j < ops.length; j++) {
     const a = ops[i], b = ops[j];
     if (a.x0 < b.x1 - EPS && b.x0 < a.x1 - EPS && a.z0 < b.z1 - EPS && b.z0 < a.z1 - EPS) errs.push(`проёмы пересекаются: ось ${a.e.axis}/${b.e.axis}, этаж ${a.e.floor}/${b.e.floor}`);
+    else { const g = 0.1 - EPS; if (a.x0 < b.x1 + g && b.x0 < a.x1 + g && a.z0 < b.z1 + g && b.z0 < a.z1 + g) errs.push(`простенок меньше 10 см: ось ${a.e.axis}/${b.e.axis}, этаж ${a.e.floor}/${b.e.floor}`); }
   }
   // решения автора (ответы на вопросы)
   const st = DATA.styles.find((q) => q.id === m.style);
@@ -109,6 +124,17 @@ function inspect(req, m, label) {
   // первый и верхний этажи — как в альбоме, меняются только типовые средние
   const roles = m.section.floors.filter((f) => f.role !== 'attic').map((f) => f.role);
   if (roles[0] !== 1 || roles[roles.length - 1] !== st.section.floors.length) errs.push(`первый или верхний этаж подменён: ${roles.join(',')}`);
+  // объём для 3d.html: отверстия строго внутри контура и не касаются друг друга
+  const sol = G.solid(m);
+  if (!sol.parts.every((q) => JSON.stringify(q).match(/-?\d/) && !/null|NaN/.test(JSON.stringify(q)))) errs.push('в объёме есть null/NaN');
+  for (const q of sol.parts.filter((r) => r.kind === 'prism' && r.holes.length)) {
+    for (const h of q.holes) if (!h.every((pt) => inPoly(pt, q.pts))) errs.push(`3D: проём вне контура «${q.name}»`);
+    const bb = q.holes.map((h) => [Math.min(...h.map((p) => p[0])), Math.max(...h.map((p) => p[0])), Math.min(...h.map((p) => p[1])), Math.max(...h.map((p) => p[1]))]);
+    for (let i = 0; i < bb.length; i++) for (let j = i + 1; j < bb.length; j++) {
+      const A = bb[i], B = bb[j];
+      if (A[0] < B[1] + 1e-3 && B[0] < A[1] + 1e-3 && A[2] < B[3] + 1e-3 && B[2] < A[3] + 1e-3) errs.push(`3D: проёмы касаются в «${q.name}»`);
+    }
+  }
   // правила автора, которые генератор проверяет сам, тоже должны выполняться
   for (const c of m.checks) if (!c.ok) errs.push(`правило ${c.id}: ${c.detail}`);
   // все элементы — из одного стиля (запрет смешения)

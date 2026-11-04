@@ -174,7 +174,7 @@
     const [ris, wing, por] = st.plan.parts;
     const g = st.generator;
     const c2e = por.column_to_edge_m;
-    const sMin = st.windows.portico['1'].w_m; // T2: арки аркады не пересекаются
+    const sMin = st.windows.portico['1'].w_m + PIER_MIN; // T2: арки аркады не пересекаются
     const cols = g.portico_columns;
     const wingW = (w) => 2 * wing.margin_m + (w - 1) * wing.axis_step_m;
     let best = null;
@@ -204,7 +204,7 @@
     pushPart('wing', wing.name, WW);
     const pm = c2e + best.s / 2;
     for (let i = 0; i < best.n; i++) axes.push(axis(x + pm + i * best.s, 'portico'));
-    const portico = { x0: r3(x), x1: r3(x + best.P), spans: best.n, step: r3(best.s), columns: best.n + 1, c2e };
+    const portico = { x0: r3(x), x1: r3(x + best.P), spans: best.n, step: r3(best.s), columns: best.n + 1, c2e, projection: por.projection_m };
     pushPart('portico', por.name, best.P);
     for (let i = 0; i < best.w; i++) axes.push(axis(x + wing.margin_m + i * wing.axis_step_m, 'wing'));
     pushPart('wing', wing.name, WW);
@@ -903,7 +903,10 @@
 
   // --------------------------------------------------------------- проверки
   function rectOf(e) { return { x0: e.x - e.w / 2, x1: e.x + e.w / 2, z0: e.z0, z1: e.z0 + e.h }; }
-  function overlap(a, b) { return a.x0 < b.x1 - EPS && b.x0 < a.x1 - EPS && a.z0 < b.z1 - EPS && b.z0 < a.z1 - EPS; }
+  // T2: проёмы не пересекаются, и между ними остаётся хотя бы PIER_MIN стены
+  // (техническое: без этого возможен простенок в 1 мм; в альбоме самый узкий — ≈0,5 м)
+  const PIER_MIN = 0.1;
+  function overlap(a, b) { const g = PIER_MIN - EPS; return a.x0 < b.x1 + g && b.x0 < a.x1 + g && a.z0 < b.z1 + g && b.z0 < a.z1 + g; }
 
   function checkModel(data, m) {
     const st = getStyle(data, m.style);
@@ -926,7 +929,7 @@
     // T2: проёмы не пересекаются
     let clash = null;
     for (let i = 0; i < ops.length && !clash; i++) for (let j = i + 1; j < ops.length; j++) if (overlap(rectOf(ops[i]), rectOf(ops[j]))) { clash = [ops[i], ops[j]]; break; }
-    push('T2', !clash, clash ? `пересекаются проёмы на осях ${clash[0].axis || '—'} и ${clash[1].axis || '—'} (этаж ${clash[0].floor})` : `${ops.length} проёмов, пересечений нет`, true);
+    push('T2', !clash, clash ? `проёмы на осях ${clash[0].axis || '—'} и ${clash[1].axis || '—'} (этаж ${clash[0].floor}) пересекаются или ближе ${fmt(PIER_MIN, 2)} м` : `${ops.length} проёмов, пересечений нет, простенки не меньше ${fmt(PIER_MIN, 2)} м`, true);
     // T3: проёмы в пределах фасада
     const out = ops.find((e) => { const r = rectOf(e); return r.x0 < -EPS || r.x1 > m.W + EPS || r.z0 < -EPS || r.z1 > m.wallTop + EPS; });
     const erOut = E.find((e) => e.type === 'erker' && (e.x0 < -EPS || e.x1 > m.W + EPS));
@@ -1043,7 +1046,7 @@
     F2: 'Одинаковый шаг осей в рядовом доме',
     F3: 'Нет смешения элементов разных стилей',
     T1: 'Оси влезают в ширину',
-    T2: 'Проёмы не пересекаются',
+    T2: 'Проёмы не пересекаются (простенок не меньше 10 см)',
     T3: 'Проёмы в пределах фасада',
     'R01.1': 'Пятичастная композиция, 3–6 осей в крыле, ордер на рустованном 1-м этаже',
     'R01.2': 'Портик не убирается, меняется число колонн (4 / 6 / 8)',
@@ -1118,6 +1121,155 @@
       row.checksOk = m.checks.every((c) => c.ok);
       return row;
     });
+  }
+
+  // ================================================================ объём (3D)
+  // Простой объём фасада для 3d.html: плита стены с проёмами и выступающие
+  // части. Без three.js — только числа, чтобы проверять в Node. Координаты:
+  // x — вдоль фасада, z — вверх, y — наружу (лицо стены y = 0).
+  // Толщина стены, выносы, глубина эркеров и балконов, уклон кровли в альбоме
+  // не даны — это условные величины (SOLID), их видно в описании страницы.
+  const SOLID = { wall: 0.8, below: 0.3, erker: 1.0, balcony: 0.9, roofRun: 1.25, recess: 0.12 };
+  const ARC = 16;
+
+  function openingPath(e, z0) {
+    const x0 = e.x - e.w / 2, x1 = e.x + e.w / 2, zb = z0 === undefined ? e.z0 : z0, zt = e.z0 + e.h;
+    if ((e.shape === 'arch' && e.w / 2 <= e.h) || e.shape === 'lunette') {
+      const r = e.w / 2;
+      const zs = e.shape === 'lunette' ? zb : zt - r;
+      const pts = [[x0, zb], [x1, zb]];
+      if (zs > zb + 1e-9) pts.push([x1, zs]);
+      for (let i = 1; i < ARC; i++) { const a = Math.PI * i / ARC; pts.push([e.x + r * Math.cos(a), zs + r * Math.sin(a)]); }
+      if (zs > zb + 1e-9) pts.push([x0, zs]);
+      return pts.map((p) => [r3(p[0]), r3(p[1])]);
+    }
+    return [[x0, zb], [x1, zb], [x1, zt], [x0, zt]].map((p) => [r3(p[0]), r3(p[1])]);
+  }
+
+  // контур стены: верхняя огибающая стен (у 04 — готовый контур с парапетом),
+  // низ уходит на 0,3 м под землю, чтобы ворота от ±0,000 были отверстием
+  function wallOutline(m) {
+    const E = m.elements;
+    const B = -SOLID.below;
+    const ow = E.find((e) => e.type === 'wall' && e.outline);
+    if (ow) return ow.outline.map((p) => [p[0], p[1] <= EPS ? B : p[1]]);
+    const rects = E.filter((e) => (e.type === 'wall' && !e.outline) || e.type === 'attic-floor');
+    const xs = [...new Set([0, m.W].concat(...rects.map((r) => [r.x0, r.x1])).map(r3))].filter((x) => x >= -EPS && x <= m.W + EPS).sort((a, b) => a - b);
+    const tops = [];
+    for (let i = 0; i < xs.length - 1; i++) {
+      const xm = (xs[i] + xs[i + 1]) / 2;
+      tops.push(Math.max(...rects.filter((r) => r.x0 <= xm && r.x1 >= xm).map((r) => r.z1)));
+    }
+    const pts = [[0, B], [0, tops[0]]];
+    for (let i = 0; i < tops.length; i++) {
+      pts.push([xs[i + 1], tops[i]]);
+      if (i + 1 < tops.length && Math.abs(tops[i + 1] - tops[i]) > EPS) pts.push([xs[i + 1], tops[i + 1]]);
+    }
+    pts.push([m.W, B]);
+    return pts.filter((p, i, a) => !i || Math.abs(p[0] - a[i - 1][0]) > EPS || Math.abs(p[1] - a[i - 1][1]) > EPS);
+  }
+
+  function solid(m) {
+    const E = m.elements;
+    const T = SOLID.wall;
+    const S = [];
+    const box = (x0, x1, z0, z1, y0, y1, mat, name) => { if (x1 - x0 > EPS && z1 - z0 > EPS && y1 - y0 > EPS) S.push({ kind: 'box', x0: r3(x0), x1: r3(x1), z0: r3(z0), z1: r3(z1), y0: r3(y0), y1: r3(y1), mat, name }); };
+    const prism = (pts, y0, y1, mat, name, holes) => S.push({ kind: 'prism', pts, holes: holes || [], y0: r3(y0), y1: r3(y1), mat, name });
+    const pane = (pts, y, mat) => S.push({ kind: 'pane', pts, y: r3(y), mat });
+    const ops = E.filter((e) => e.type === 'opening');
+    const portico = E.find((e) => e.type === 'block' && /портик/.test(e.name || ''));
+    const pd = portico ? m.plan.portico.projection : 0; // вынос портика — из альбома (2,9 м)
+    const inPortico = (e) => portico && e.kind === 'arcade';
+    // 1. стена с проёмами
+    const wallHoles = [];
+    for (const e of ops) {
+      if (e.onErker || inPortico(e)) continue;
+      const pts = openingPath(e);
+      wallHoles.push(pts);
+      const dark = e.kind === 'door' || e.kind === 'gate';
+      pane(pts, dark ? -T + 0.1 : -SOLID.recess, dark ? 'door' : 'glass');
+    }
+    prism(wallOutline(m), -T, 0, 'wall', 'стена', wallHoles);
+    // 2. портик 01: выступающий подиум с аркадой, стилобат, колонны, антаблемент
+    if (portico) {
+      const arc = ops.filter(inPortico);
+      const zTop = portico.z1;
+      prism([[portico.x0, -SOLID.below], [portico.x1, -SOLID.below], [portico.x1, zTop], [portico.x0, zTop]], 0, pd, 'wall', 'подиум портика', arc.map((e) => openingPath(e)));
+      for (const e of arc) pane(openingPath(e), 0.05, 'door');
+    }
+    // 3. эркеры: объём с окнами по фасаду
+    for (const er of E.filter((e) => e.type === 'erker')) {
+      const front = ops.filter((e) => e.onErker && !e.side && e.x > er.x0 && e.x < er.x1);
+      const holes = front.map((e) => openingPath(e));
+      prism([[er.x0, er.z0], [er.x1, er.z0], [er.x1, er.z1], [er.x0, er.z1]], 0, SOLID.erker, 'wall', 'эркер', holes);
+      for (const h of holes) pane(h, SOLID.erker - SOLID.recess, 'glass');
+    }
+    for (const c of E.filter((e) => e.type === 'console')) {
+      const d = (c.x1 - c.x0) * 0.25;
+      prism([[c.x0 + d, c.z0], [c.x1 - d, c.z0], [c.x1, c.z1], [c.x0, c.z1]], 0, SOLID.erker, 'stone', 'консоль эркера');
+    }
+    for (const b of E.filter((e) => e.type === 'brow')) {
+      const pts = [];
+      for (let i = 0; i <= ARC; i++) { const t = i / ARC; const x = b.x0 + (b.x1 - b.x0) * t; pts.push([r3(x), r3(b.z0 + 4 * b.rise * t * (1 - t))]); }
+      for (let i = ARC; i >= 0; i--) { const t = i / ARC; const x = b.x0 + 0.15 + (b.x1 - b.x0 - 0.3) * t; pts.push([r3(x), r3(b.z0 - 0.15 + 4 * (b.rise - 0.15) * t * (1 - t))]); }
+      prism(pts, -0.2, SOLID.erker + 0.2, 'roof', 'бровка над эркером');
+    }
+    // 4. горизонтальные членения
+    for (const e of E.filter((q) => q.type === 'plinth')) box(e.x0, e.x1, Math.max(e.z0, 0), e.z1, 0, portico && e.x0 >= portico.x0 - EPS && e.x1 <= portico.x1 + EPS ? pd + 0.08 : 0.08, 'stone', e.name);
+    for (const e of E.filter((q) => q.type === 'belt')) {
+      const h = e.z1 - e.z0 > EPS ? e.z1 - e.z0 : 0.06;
+      box(e.x0, e.x1, e.z0, e.z0 + h, 0, e.weight === 'strong' ? 0.2 : e.weight === 'stylobate' ? 0.3 : 0.1, 'trim', e.name);
+      if (portico && (e.weight === 'stylobate' || e.weight === 'strong')) box(portico.x0, portico.x1, e.z0, e.z0 + h, 0, pd + 0.1, 'trim', 'стилобат портика');
+    }
+    for (const e of E.filter((q) => q.type === 'crown')) {
+      if (/капител/.test(e.name)) continue;
+      box(e.x0, e.x1, e.z0, e.z1, -T, Math.max(0.1, e.projection), 'trim', e.name);
+      if (portico) box(portico.x0, portico.x1, e.z0, e.z1, 0, pd + Math.max(0.1, e.projection), 'trim', 'антаблемент портика');
+    }
+    for (const e of E.filter((q) => q.type === 'lopatka')) box(e.x0, e.x1, e.z0, e.z1, 0, 0.08, 'trim', 'лопатка');
+    // 5. ордер
+    for (const c of E.filter((q) => q.type === 'column')) {
+      const inP = portico && c.x > portico.x0 && c.x < portico.x1 && c.kind === 'column';
+      if (c.kind === 'pilaster') box(c.x - c.w / 2, c.x + c.w / 2, c.z0, c.z1, 0, 0.18, 'trim', 'пилястра');
+      else S.push({ kind: 'cyl', x: c.x, z0: c.z0, z1: c.z1, r: r3(c.w / 2), y: r3(c.kind === 'half-column' ? 0 : inP ? pd - c.w / 2 - 0.1 : c.w / 2 + 0.1), mat: 'trim', name: c.kind === 'half-column' ? 'полуколонна' : 'колонна' });
+    }
+    // 6. сандрики, фронтоны, порталы
+    for (const e of E.filter((q) => q.type === 'sandrik')) {
+      const x0 = e.x - e.w / 2, x1 = e.x + e.w / 2;
+      if (e.shape === 'triangle') prism([[x0, e.z0], [x1, e.z0], [e.x, e.z0 + e.h]], 0, 0.15, 'trim', 'сандрик');
+      else if (e.shape === 'segment') {
+        const pts = [[x0, e.z0], [x1, e.z0]];
+        for (let i = 1; i < ARC; i++) { const t = i / ARC; pts.push([r3(x1 - (x1 - x0) * t), r3(e.z0 + 4 * e.h * t * (1 - t))]); }
+        prism(pts, 0, 0.15, 'trim', 'лучковый фронтон');
+      } else box(x0, x1, e.z0, e.z0 + e.h, 0, 0.15, 'trim', 'сандрик');
+    }
+    for (const e of E.filter((q) => q.type === 'portal')) {
+      for (const s of [-1, 1]) box(e.x + s * e.pilOff - e.pilW / 2, e.x + s * e.pilOff + e.pilW / 2, 0, e.h, 0, 0.3, 'trim', 'портал');
+      box(e.x - e.w / 2, e.x + e.w / 2, e.h, e.h + e.lintelH, 0, 0.35, 'trim', 'портал');
+      prism([[e.x - e.pedW / 2, e.h + e.lintelH], [e.x + e.pedW / 2, e.h + e.lintelH], [e.x, e.h + e.lintelH + e.pedH]], 0, 0.35, 'trim', 'фронтон портала');
+    }
+    // 7. балконы: плита и решётка
+    for (const b of E.filter((q) => q.type === 'balcony')) {
+      const d = b.z1 - b.z0 > EPS ? SOLID.balcony : 0.15;
+      box(b.x0, b.x1, b.z0, b.z1, 0, d, 'stone', 'плита балкона');
+      box(b.x0, b.x1, b.z1, b.railTop, d - 0.04, d, 'metal', 'решётка');
+      if (d > 0.2) for (const x of [b.x0, b.x1 - 0.04]) box(x, x + 0.04, b.z1, b.railTop, 0, d, 'metal', 'решётка');
+    }
+    // 8. аттики и аттиковый этаж — в плоскости стены
+    for (const a of E.filter((q) => q.type === 'attic')) {
+      for (const p of a.parts) box(p.x0, p.x1, p.z0, p.z1, -T, 0.1, 'wall', a.name);
+      if (a.arch) {
+        const pts = [[a.arch.x - a.arch.r, a.arch.z0], [a.arch.x + a.arch.r, a.arch.z0]];
+        for (let i = 1; i < ARC; i++) { const t = Math.PI * i / ARC; pts.push([r3(a.arch.x + a.arch.r * Math.cos(t)), r3(a.arch.z0 + a.arch.r * Math.sin(t))]); }
+        prism(pts, -T, 0.1, 'wall', 'фронтон аттика');
+      }
+    }
+    // 9. кровли — условный скат назад от линии карниза
+    for (const r of E.filter((q) => q.type === 'roof')) {
+      const [a, b, c, d] = r.pts;
+      S.push({ kind: 'wedge', base: [a[0], b[0]], ridge: [d[0], c[0]], zb: a[1], zt: c[1], y0: 0, run: r3((c[1] - a[1]) * SOLID.roofRun), mat: 'roof', name: r.name });
+    }
+    return { W: m.W, wall: T, assumptions: SOLID, parts: S, skipped: ['руст и рисунок гранита', 'скульптура', 'медальоны', 'капители и базы', 'окна на гранях эркеров'] };
   }
 
   // ================================================================ рендер SVG
@@ -1410,6 +1562,7 @@
     version: '1.0',
     EPS,
     W_MAX,
+    PIER_MIN,
     RULE_TITLES,
     FLOOR_PLAN,
     getStyle,
@@ -1423,6 +1576,8 @@
     albumRequest,
     validate,
     render,
+    solid,
+    openingPath,
     fmt,
     fmtMark
   };
